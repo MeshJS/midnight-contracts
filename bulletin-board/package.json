@@ -1,5 +1,5 @@
 {
-  "name": "@meshsdk/counter-contract",
+  "name": "@meshsdk/board-contract",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "private": true,
@@ -52,10 +52,10 @@
     "ws": "8.18.2"
   },
   "scripts": {
-    "compact": "compact compile +0.25.0 src/counter.compact src/managed/counter",
+    "compact": "compact compile +0.25.0 src/board.compact src/managed/board",
     "test": "vitest run",
     "test:compile": "npm run compact && vitest run",
-    "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/counter.compact ./dist",
+    "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/board.compact ./dist",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
