@@ -1,1 +1,1 @@
-# midnight-contracts
+List of contracts
