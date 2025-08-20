@@ -8,11 +8,8 @@ export enum STATE {
 }
 
 export ledger state: STATE;
-
 export ledger message: Maybe<Opaque<"string">>;
-
 export ledger instance: Counter;
-
 export ledger poster: Bytes<32>;
 
 constructor() {
