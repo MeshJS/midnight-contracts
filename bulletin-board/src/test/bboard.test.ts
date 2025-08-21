@@ -1,64 +1,68 @@
-import { BBoardSimulator } from "./bboard-simulator.js";
-import {
-  NetworkId,
-  setNetworkId,
-} from "@midnight-ntwrk/midnight-js-network-id";
+import { BBoardSimulator } from "./simulators/bboard-simulator";
 import { describe, it, expect } from "vitest";
-import { randomBytes } from "./utils";
+import { randomBytes } from "./utils/utils";
 import { STATE } from "../managed/board/contract/index.cjs";
+import * as utils from './utils/utils';
+import { CoinPublicKey } from "@midnight-ntwrk/compact-runtime";
 
-setNetworkId(NetworkId.Undeployed);
+// Users private information
+const key1 = randomBytes(32);
+const key2 = randomBytes(32);
+
+// Callers
+export const p1 = utils.toHexPadded('player1');
+export const p2 = utils.toHexPadded('player2');
+
+function createSimulator() {
+  const simulator = BBoardSimulator.deployContract(key1);
+  simulator.createPrivateState('p2', key2);
+  return simulator;
+}
+
+let caller: CoinPublicKey;
 
 describe("BBoard smart contract", () => {
-  it("generates initial ledger state deterministically", () => {
-    const key = randomBytes(32);
-    const simulator0 = new BBoardSimulator(key);
-    const simulator1 = new BBoardSimulator(key);
-    expect(simulator0.getLedger()).toEqual(simulator1.getLedger());
-  });
-
-  it("properly initializes ledger state and private state", () => {
-    const key = randomBytes(32);
-    const simulator = new BBoardSimulator(key);
-    const initialLedgerState = simulator.getLedger();
+  it("properly initializes ledger state and private state", () => {    
+    const simulator = createSimulator();     
+    const initialLedgerState = simulator.as('p1').getLedger();
     expect(initialLedgerState.instance).toEqual(1n);
     expect(initialLedgerState.message.is_some).toEqual(false);
     expect(initialLedgerState.message.value).toEqual("");
     expect(initialLedgerState.poster).toEqual(new Uint8Array(32));
     expect(initialLedgerState.state).toEqual(STATE.vacant);
-    const initialPrivateState = simulator.getPrivateState();
-    expect(initialPrivateState).toEqual({ secretKey: key });
+    const initialPrivateState = simulator.as('p1').getPrivateState();
+    expect(initialPrivateState).toEqual({ secretKey: key1 });
   });
 
   it("lets you set a message", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    const initialPrivateState = simulator.getPrivateState();
+    const simulator = createSimulator();
+    const initialPrivateState = simulator.as('p1').getPrivateState();
     const message =
       "Szeth-son-son-Vallano, Truthless of Shinovar, wore white on the day he was to kill a king";
-    simulator.post(message);
+    simulator.as('p1').post(message);
     // the private ledger state shouldn't change
-    expect(initialPrivateState).toEqual(simulator.getPrivateState());
+    expect(initialPrivateState).toEqual(simulator.as('p1').getPrivateState());
     // And all the correct things should have been updated in the public ledger state
-    const ledgerState = simulator.getLedger();
+    const ledgerState = simulator.as('p1').getLedger();
     expect(ledgerState.instance).toEqual(1n);
     expect(ledgerState.message.is_some).toEqual(true);
     expect(ledgerState.message.value).toEqual(message);
-    expect(ledgerState.poster).toEqual(simulator.publicKey());
+    expect(ledgerState.poster).toEqual(simulator.as('p1').publicKey());
     expect(ledgerState.state).toEqual(STATE.occupied);
   });
 
   it("lets you take down a message", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    const initialPrivateState = simulator.getPrivateState();
-    const initialPublicKey = simulator.publicKey();
+    const simulator = createSimulator();
+    const initialPrivateState = simulator.as('p1').getPrivateState();
+    const initialPublicKey = simulator.as('p1').publicKey();
     const message =
       "Prince Raoden of Arelon awoke early that morning, completely unaware that he had been damned for all eternity.";
-    simulator.post(message);
-    simulator.takeDown();
+    simulator.as('p1').post(message);
+    simulator.as('p1').takeDown();
     // the private ledger state shouldn't change
-    expect(initialPrivateState).toEqual(simulator.getPrivateState());
+    expect(initialPrivateState).toEqual(simulator.as('p1').getPrivateState());
     // And all the correct things should have been updated in the public ledger state
-    const ledgerState = simulator.getLedger();
+    const ledgerState = simulator.as('p1').getLedger();
     expect(ledgerState.instance).toEqual(2n);
     expect(ledgerState.message.is_some).toEqual(false);
     expect(ledgerState.message.value).toEqual("");
@@ -68,66 +72,64 @@ describe("BBoard smart contract", () => {
   });
 
   it("lets you post another message after taking down the first", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    const initialPrivateState = simulator.getPrivateState();
-    simulator.post("Life before Death.");
-    simulator.takeDown();
+    const simulator = createSimulator();
+    const initialPrivateState = simulator.as('p1').getPrivateState();
+    simulator.as('p1').post("Life before Death.");
+    simulator.as('p1').takeDown();
     const message = "Strength before Weakness.";
-    simulator.post(message);
+    simulator.as('p1').post(message);
     // the private ledger state shouldn't change
-    expect(initialPrivateState).toEqual(simulator.getPrivateState());
+    expect(initialPrivateState).toEqual(simulator.as('p1').getPrivateState());
     // And all the correct things should have been updated in the public ledger state
-    const ledgerState = simulator.getLedger();
+    const ledgerState = simulator.as('p1').getLedger();
     expect(ledgerState.instance).toEqual(2n);
     expect(ledgerState.message.is_some).toEqual(true);
     expect(ledgerState.message.value).toEqual(message);
-    expect(ledgerState.poster).toEqual(simulator.publicKey());
+    expect(ledgerState.poster).toEqual(simulator.as('p1').publicKey());
     expect(ledgerState.state).toEqual(STATE.occupied);
   });
 
   it("lets a different user post a message after taking down the first", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("Remember, the past need not become our future as well.");
-    simulator.takeDown();
-    simulator.switchUser(randomBytes(32));
+    const simulator = createSimulator();
+    const caller = p2;
+    simulator.as('p1').post("Remember, the past need not become our future as well.");
+    simulator.as('p1').takeDown();
     const message = "Joy was more than just an absence of discomfort.";
-    simulator.post(message);
-    const ledgerState = simulator.getLedger();
+    simulator.as('p2').post(message);
+    const ledgerState = simulator.as('p2').getLedger();
     expect(ledgerState.instance).toEqual(2n);
     expect(ledgerState.message.is_some).toEqual(true);
     expect(ledgerState.message.value).toEqual(message);
-    expect(ledgerState.poster).toEqual(simulator.publicKey());
+    expect(ledgerState.poster).toEqual(simulator.as('p2').publicKey());
     expect(ledgerState.state).toEqual(STATE.occupied);
   });
 
   it("doesn't let the same user post twice", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post(
+    const simulator = createSimulator();
+    simulator.as('p1').post(
       "My name is Stephen Leeds, and I am perfectly sane. My hallucinations, however, are all quite mad.",
     );
     expect(() =>
-      simulator.post(
+      simulator.as('p1').post(
         "You should know by now that I've already had greatness. I traded it for mediocrity and some measure of sanity.",
       ),
     ).toThrow("failed assert: Attempted to post to an occupied board");
   });
 
   it("doesn't let different users post twice", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post("Ash fell from the sky");
-    simulator.switchUser(randomBytes(32));
+    const simulator = createSimulator();
+    simulator.as('p1').post("Ash fell from the sky");    
     expect(() =>
-      simulator.post("I am, unfortunately, the hero of ages."),
+      simulator.as('p2').post("I am, unfortunately, the hero of ages."),
     ).toThrow("failed assert: Attempted to post to an occupied board");
   });
 
   it("doesn't let users take down someone elses posts", () => {
-    const simulator = new BBoardSimulator(randomBytes(32));
-    simulator.post(
+    const simulator = createSimulator();
+    simulator.as('p1').post(
       "Sometimes a hypocrite is nothing more than a man in the process of changing.",
-    );
-    simulator.switchUser(randomBytes(32));
-    expect(() => simulator.takeDown()).toThrow(
+    );    
+    expect(() => simulator.as('p2').takeDown()).toThrow(
       "failed assert: Attempted to take down post, but not the current poster",
     );
   });
