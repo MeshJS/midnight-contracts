@@ -1,0 +1,53 @@
+pragma language_version >= 0.17;
+
+import CompactStandardLibrary;
+
+export { CoinInfo };
+
+export ledger counter: Counter;
+export ledger nonce: Bytes<32>;
+export ledger tvl_token: Uint<64>;
+
+export ledger reward: QualifiedCoinInfo;  
+export ledger tvl_dust: Uint<64>;
+export sealed ledger owner_public_key: ZswapCoinPublicKey;
+
+constructor(initNonce: Bytes<32>) {
+  nonce = disclose(initNonce);
+  owner_public_key = ownPublicKey();
+}
+
+export circuit mint(coin: CoinInfo): [] {
+  receive(disclose(coin));
+  assert(coin.value == 100000000, "requires 100 * 1000000 t-dust");
+  assert (coin.color == nativeToken(), "Invalid coin provided");  
+  if (tvl_dust == 0) {
+        reward.writeCoin(disclose(coin), right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+        tvl_dust = tvl_dust + disclose(coin.value) as Uint<64>;
+  } else {                
+        const coin_sum = mergeCoinImmediate(reward, disclose(coin));
+        reward.writeCoin(coin_sum, right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+        tvl_dust = tvl_dust + disclose(coin.value) as Uint<64>;
+  }    
+
+  counter.increment(1);
+  const newNonce = evolveNonce(counter, nonce);
+  const amount = 100 as Uint<64>;
+  tvl_token = tvl_token + amount as Uint<64>;
+  mintToken(pad(32, "mesh_coin"), amount, newNonce, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+  nonce = newNonce;  
+}
+
+export circuit owner_withdraw(value: Uint<64>): [] {  
+  assert (owner_public_key == ownPublicKey(), "Unauthorized");
+  assert (value > tvl_dust, "Insufficient balance");  
+  // send circuit should always go with ownPublicKey otherwilse ciphertext is not created.
+  const send_result =  send(reward, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()), disclose(value));
+    
+  tvl_dust = tvl_dust - disclose(value);
+  if (tvl_dust != 0) {
+      reward.writeCoin(send_result.change.value, right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+  } else {
+    reward = default<QualifiedCoinInfo>;
+  }           
+}
