@@ -48,7 +48,7 @@ export circuit mint(coin: CoinInfo): [] {
 
 export circuit burn(value: Uint<64>): [] {
   assert(owner_public_key == ownPublicKey(), "Unauthorized");
-  assert(value > tvl_dust, "Insufficient balance");
+  assert(value <= tvl_dust, "Insufficient balance");
   const burn_address = burnAddress();
 
   const send_result = send(reward, burn_address, disclose(value));
@@ -65,7 +65,7 @@ export circuit burn(value: Uint<64>): [] {
 
 export circuit owner_withdraw(value: Uint<64>): [] {
   assert(owner_public_key == ownPublicKey(), "Unauthorized");
-  assert(value > tvl_dust, "Insufficient balance");
+  assert(value <= tvl_dust, "Insufficient balance");
   // send circuit should always go with ownPublicKey otherwilse ciphertext is not created.
   const send_result =
                 send(reward,

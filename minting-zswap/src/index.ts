@@ -1,2 +1,2 @@
-export * as Board from "./managed/board/contract/index.cjs";
+export * as Minting from "./managed/minting-zswap/contract/index.cjs";
 export * from "./witnesses";
