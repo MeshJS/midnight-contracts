@@ -19,7 +19,7 @@ function createSimulator() {
 
 let caller: CoinPublicKey;
 
-describe("BBoard smart contract", () => {
+describe("Minting smart contract", () => {
   it("properly initializes ledger state and private state", () => {
     const simulator = createSimulator();
     const initialLedgerState = simulator.as("p1").getLedger();
@@ -28,7 +28,7 @@ describe("BBoard smart contract", () => {
     expect(initialPrivateState).toEqual({ privateMinting: key1 });
   });
 
-  it("lets you set a message", () => {
+  it("lets you mint", () => {
     const simulator = createSimulator();
     const initialPrivateState = simulator.as("p1").getPrivateState();
 
@@ -40,7 +40,7 @@ describe("BBoard smart contract", () => {
     expect(ledgerState.counter).toEqual(1n);
   });
 
-  it("lets you take down a message", () => {
+  it("lets you mint and burn", () => {
     const simulator = createSimulator();
     const initialPrivateState = simulator.as("p1").getPrivateState();
     simulator.as("p1").mint(utils.coin(100000000));
@@ -52,7 +52,7 @@ describe("BBoard smart contract", () => {
     expect(ledgerState.counter).toEqual(1n);
   });
 
-  it("lets you post another message after taking down the first", () => {
+  it("lets you mint and burn and mint again", () => {
     const simulator = createSimulator();
     const initialPrivateState = simulator.as("p1").getPrivateState();
     simulator.as("p1").mint(utils.coin(100000000));
@@ -65,7 +65,7 @@ describe("BBoard smart contract", () => {
     expect(ledgerState.counter).toEqual(2n);
   });
 
-  it("lets a different user post a message after taking down the first", () => {
+  it("lets you mint, burn and withdray with two users", () => {
     const simulator = createSimulator();
     const caller = p2;
     simulator.as("p1").mint(utils.coin(100000000));
