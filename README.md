@@ -2,7 +2,7 @@
 
 - [ X ] Counter
 - [ X ] Bulletin Board
-- [ ] Tokenization
+- [ X ] Tokenization
 - [ ] Bucket DEFI
 - [ ] Identity
 

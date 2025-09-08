@@ -53,6 +53,8 @@
   },
   "scripts": {
     "compact": "compact compile +0.25.0 src/board.compact src/managed/board",
+    "compact-fast": "compact compile --skip-zk +0.25.0 src/board.compact src/managed/board",
+    "compact-format": "compact format",
     "test": "vitest run",
     "test:compile": "npm run compact && vitest run",
     "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/board.compact ./dist",
