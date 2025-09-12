@@ -1,2 +1,2 @@
-export * as Counter from "./managed/counter/contract/index.cjs";
+export * as Counter from "./managed/nft-bucket-identity/contract/index.cjs";
 export * from "./witnesses";

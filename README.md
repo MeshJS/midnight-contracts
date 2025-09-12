@@ -2,8 +2,8 @@
 
 - [ X ] Counter
 - [ X ] Bulletin Board
-- [ X ] Tokenization
-- [ ] Bucket DEFI
-- [ ] Identity
+- [ X ] Tokenization ZSWAP
+- [ WIP ] NFT-ERC721 Bucket Identity 
+
 
 
