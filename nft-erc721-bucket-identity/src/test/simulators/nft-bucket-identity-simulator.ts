@@ -13,7 +13,7 @@ import {
   type Ledger,
   ledger
 } from "../../managed/nft-bucket-identity/contract/index.cjs";
-import { type BBoardPrivateState, createBBoardPrivateState, witnesses } from "../../witnesses.js";
+import { type PrivateState, createPrivateState, witnesses } from "../../witnesses.js";
 import { createLogger } from "../../logger-utils.js";
 import { LogicTestingConfig } from "../../config.js";
 import { ContractAddress, encodeTokenType } from '@midnight-ntwrk/onchain-runtime';
@@ -22,22 +22,25 @@ import { p1 } from "../nft-bucket-identity.test.js";
 const config = new LogicTestingConfig();
 export const logger = await createLogger(config.logDir);
 
-export class BBoardSimulator {
-  readonly contract: Contract<BBoardPrivateState>;  
-  circuitContext: CircuitContext<BBoardPrivateState>;
-  userPrivateStates: Record<string, BBoardPrivateState>;
-  updateUserPrivateState: (newPrivateState: BBoardPrivateState) => void;
+export class Simulator {
+  readonly contract: Contract<PrivateState>;  
+  circuitContext: CircuitContext<PrivateState>;
+  userPrivateStates: Record<string, PrivateState>;
+  updateUserPrivateState: (newPrivateState: PrivateState) => void;
   contractAddress: ContractAddress;
 
-  constructor(privateState: BBoardPrivateState) {
-    this.contract = new Contract<BBoardPrivateState>(witnesses);
+  constructor(privateState: PrivateState, name: string, symbol: string, init: boolean) {
+    this.contract = new Contract<PrivateState>(witnesses);
     this.contractAddress = sampleContractAddress();
     const {
       currentPrivateState,
       currentContractState,
       currentZswapLocalState
     } = this.contract.initialState(
-      constructorContext({ secretKey: privateState.secretKey }, p1)
+      constructorContext({ privateValue: privateState.privateValue }, p1),
+      name,
+      symbol,
+      init,
     );
     this.circuitContext = {
       currentPrivateState,
@@ -49,18 +52,18 @@ export class BBoardSimulator {
       )
     };
     this.userPrivateStates = { ['p1']: currentPrivateState };
-    this.updateUserPrivateState = (newPrivateState: BBoardPrivateState) => {};
+    this.updateUserPrivateState = (newPrivateState: PrivateState) => {};
   }
 
-  static deployContract(secretKey: Uint8Array): BBoardSimulator {
-    return new BBoardSimulator(createBBoardPrivateState(secretKey));
+  static deployContract(secretKey: number, name: string, symbol: string, init: boolean): Simulator {
+    return new Simulator(createPrivateState(secretKey), name, symbol, init);
   }
 
-  createPrivateState(pName: string, secretKey: Uint8Array): void {
-    this.userPrivateStates[pName] = createBBoardPrivateState(secretKey);
+  createPrivateState(pName: string, secretKey: number): void {
+    this.userPrivateStates[pName] = createPrivateState(secretKey);
   }
 
-  private buildTurnContext(currentPrivateState: BBoardPrivateState): CircuitContext<BBoardPrivateState> {
+  private buildTurnContext(currentPrivateState: PrivateState): CircuitContext<PrivateState> {
     return {
       ...this.circuitContext,
       currentPrivateState,
@@ -69,11 +72,11 @@ export class BBoardSimulator {
 
   private updateUserPrivateStateByName =
     (name: string) =>
-    (newPrivateState: BBoardPrivateState): void => {
+    (newPrivateState: PrivateState): void => {
       this.userPrivateStates[name] = newPrivateState;
     };
 
-  as(name: string): BBoardSimulator {
+  as(name: string): Simulator {
     const ps = this.userPrivateStates[name];
     if (!ps) {
       throw new Error(`No private state found for user '${name}'. Did you register it?`);
@@ -87,56 +90,26 @@ export class BBoardSimulator {
     return ledger(this.circuitContext.transactionContext.state);
   }
 
-  public getPrivateState(): BBoardPrivateState {
+  public getPrivateState(): PrivateState {
     return this.circuitContext.currentPrivateState;
   }
 
-  updateStateAndGetLedger<T>(circuitResults: CircuitResults<BBoardPrivateState, T>): Ledger {
+  updateStateAndGetLedger<T>(circuitResults: CircuitResults<PrivateState, T>): Ledger {
     this.circuitContext = circuitResults.context;     
     this.updateUserPrivateState(circuitResults.context.currentPrivateState);
     return this.getLedger();
   }   
 
-  public post(message: string, sender?: CoinPublicKey): Ledger {
+  public name(message: string, sender?: CoinPublicKey): Ledger {
     // Update the current context to be the result of executing the circuit.
-    const circuitResults = this.contract.impureCircuits.post(
+    const circuitResults = this.contract.impureCircuits.name(
       {
         ...this.circuitContext,
         currentZswapLocalState: sender
           ? emptyZswapLocalState(sender)
           : this.circuitContext.currentZswapLocalState,
-      },
-      message
+      }
     );
     return this.updateStateAndGetLedger(circuitResults);
-  }
-
-  public takeDown(sender?: CoinPublicKey): Ledger {
-    const circuitResults = this.contract.impureCircuits.takeDown(
-      {
-        ...this.circuitContext,
-        currentZswapLocalState: sender
-          ? emptyZswapLocalState(sender)
-          : this.circuitContext.currentZswapLocalState,
-      },
-    );
-    return this.updateStateAndGetLedger(circuitResults);
-  }
-
-  public publicKey(sender?: CoinPublicKey): Uint8Array {
-    const instance = convert_bigint_to_Uint8Array(
-      32,
-      this.getLedger().instance
-    );
-    return this.contract.circuits.publicKey(
-      {
-        ...this.circuitContext,
-        currentZswapLocalState: sender
-          ? emptyZswapLocalState(sender)
-          : this.circuitContext.currentZswapLocalState,
-      },
-      this.getPrivateState().secretKey,
-      instance
-    ).result;
   }
 }
