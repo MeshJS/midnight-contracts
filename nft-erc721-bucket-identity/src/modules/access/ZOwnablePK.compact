@@ -1,6 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-pragma language_version >= 0.16.0;
+pragma language_version >= 0.17.0;
 
 /**
  * @module ZOwnablePK
