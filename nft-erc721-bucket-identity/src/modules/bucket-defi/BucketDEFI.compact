@@ -1,0 +1,92 @@
+pragma language_version >= 0.17.0;
+
+module BucketDEFI {
+  import CompactStandardLibrary;
+  import "./Initializable" prefix Initializable_;
+
+  /**
+   * @description ZK Identity of tokens owner
+   * @type {Uint<64>} TokenID - The token ID intially generated from token's contract counter
+   * @type {Bytes<32>} ZK Identity - Hash of owner public key + witness nonce + counter.   
+   */
+  export ledger _ownersZK: Map<Uint<64>, Bytes<32>>;
+
+  /**
+    * @description Commitment tracked with counter
+    * @type {Bytes<32>} ZK Identity - (Hash/Commitment) of owner public key + witness nonce + counter.
+    * @type {Uint<64>} Counter - Bucket counter used when calculated the commitment   
+    */
+  export ledger _zkIdentityCounter: Map<Bytes<32>, Uint<64>>;
+
+  // Counter ussed for calculating the bucket commitment
+  export ledger _bucketCounter: Counter;
+
+  /**
+     * @description Used to track verifications made by the user using a challenge
+     * @type {Bytes<32>} Challenge - Random number generated offchain specifically for a single user.   
+     * @type {Bytes<32>} ZK Identity - (Hash/Commitment) of owner public key + witness nonce + counter.   
+     */
+  export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
+
+  // Secret nonce used for calculating the owner commitment
+  export witness wit_secretNonce(): Bytes<32>;
+
+  export circuit initialize(ownerId: Bytes<32>): [] {
+    Initializable_initialize();
+
+    assert(ownerId != default<Bytes<32>>, "BucketDEFI: invalid id");
+    _transferOwnership(ownerId);
+  }
+
+  export circuit owner(): Bytes<32> {
+    Initializable_assertInitialized();
+    return _ownerCommitment;
+  }
+
+  export circuit transferOwnership(newOwnerId: Bytes<32>): [] {
+    Initializable_assertInitialized();
+
+    assertOnlyOwner();
+    assert(newOwnerId != default<Bytes<32>>, "BucketDEFI: invalid id");
+    _transferOwnership(newOwnerId);
+  }
+
+  export circuit renounceOwnership(): [] {
+    Initializable_assertInitialized();
+
+    assertOnlyOwner();
+    _ownerCommitment.resetToDefault();
+  }
+
+  export circuit assertOnlyOwner(): [] {
+    Initializable_assertInitialized();
+
+    const nonce = wit_secretNonce();
+    const callerAsEither =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    const id = _computeOwnerId(callerAsEither, nonce);
+    assert(_ownerCommitment == _computeOwnerCommitment(id, _counter), "BucketDEFI: caller is not the owner");
+  }
+
+  export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>,): Bytes<32> {
+    Initializable_assertInitialized();
+    return persistentHash<Vector<3, Bytes<32>>>(
+             [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
+  }
+
+  export pure circuit _computeOwnerId(
+                        pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
+    assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
+
+    return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
+  }
+
+  export circuit _transferOwnership(newOwnerId: Bytes<32>): [] {
+    Initializable_assertInitialized();
+
+    _counter.increment(1);
+    _ownerCommitment = _computeOwnerCommitment(disclose(newOwnerId), _counter);
+  }
+}

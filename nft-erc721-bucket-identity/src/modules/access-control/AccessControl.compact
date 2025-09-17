@@ -4,29 +4,25 @@ module AccessControl {
   import CompactStandardLibrary;
   import "../utils/Utils" prefix Utils_;
 
-  export ledger _operatorRoles: Map<Bytes<32>, Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>;
- 
+  export ledger _operatorRoles: Map<Bytes<32>,
+                                    Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>;
+
   export ledger _adminRoles: Map<Bytes<32>, Bytes<32>>;
 
-  export ledger DEFAULT_ADMIN_ROLE: Bytes<32>;
+  export sealed ledger _DEFAULT_ADMIN_ROLE: Bytes<32>;
 
   export circuit hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
-    if (
-      _operatorRoles.member(disclose(roleId)) &&
-      _operatorRoles
-        .lookup(roleId)
-        .member(disclose(account))
-      ) {
-      return _operatorRoles
-        .lookup(roleId)
-        .lookup(disclose(account));
-    } else {
-      return false;
+    if (_operatorRoles.member(disclose(roleId)) &&
+        _operatorRoles.lookup(roleId).member(disclose(account))) {
+       return _operatorRoles.lookup(roleId).lookup(disclose(account));
+    }
+    else {
+       return false;
     }
   }
 
   export circuit assertOnlyRole(roleId: Bytes<32>): [] {
-    _checkRole(roleId, left<ZswapCoinPublicKey,ContractAddress>(ownPublicKey()));
+    _checkRole(roleId, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
   }
 
   export circuit _checkRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
@@ -50,12 +46,15 @@ module AccessControl {
     _revokeRole(roleId, account);
   }
 
-  export circuit renounceRole(roleId: Bytes<32>, callerConfirmation: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    assert(callerConfirmation == left<ZswapCoinPublicKey,ContractAddress>(ownPublicKey()), "AccessControl: bad confirmation");
+  export circuit renounceRole(
+                   roleId: Bytes<32>,
+                   callerConfirmation: Either<ZswapCoinPublicKey, ContractAddress>
+                   ): [] {
+    assert(callerConfirmation == left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()), "AccessControl: bad confirmation");
 
     _revokeRole(roleId, callerConfirmation);
   }
- 
+
   export circuit _setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
     _adminRoles.insert(disclose(roleId), disclose(adminRole));
   }
@@ -64,23 +63,17 @@ module AccessControl {
     assert(!Utils_isContractAddress(account), "AccessControl: unsafe role approval");
     return _unsafeGrantRole(roleId, account);
   }
- 
-  export circuit _unsafeGrantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+
+  export circuit _unsafeGrantRole(
+                   roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
     if (hasRole(roleId, account)) {
       return false;
     }
 
     if (!_operatorRoles.member(disclose(roleId))) {
       _operatorRoles.insert(
-        disclose(roleId),
-        default<Map<
-          Either<ZswapCoinPublicKey, ContractAddress>,
-          Boolean
-        >>
-      );
-      _operatorRoles
-        .lookup(roleId)
-        .insert(disclose(account), true);
+        disclose(roleId), default<Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>);
+      _operatorRoles.lookup(roleId).insert(disclose(account), true);
       return true;
     }
 
@@ -88,14 +81,13 @@ module AccessControl {
     return true;
   }
 
-  export circuit _revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+  export circuit _revokeRole(
+                   roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
     if (!hasRole(roleId, account)) {
       return false;
     }
 
-    _operatorRoles
-      .lookup(roleId)
-      .insert(disclose(account), false);
+    _operatorRoles.lookup(roleId).insert(disclose(account), false);
     return true;
   }
 }

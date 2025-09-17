@@ -1,0 +1,5 @@
+pragma language_version >= 0.17.0;
+
+module Identity {
+  import CompactStandardLibrary;
+}

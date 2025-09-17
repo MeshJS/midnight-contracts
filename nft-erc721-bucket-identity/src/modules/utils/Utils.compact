@@ -2,11 +2,11 @@ pragma language_version >= 0.17.0;
 
 module Utils {
   import CompactStandardLibrary;
-  
+
   export pure circuit isKeyOrAddressZero(keyOrAddress: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
     return isContractAddress(keyOrAddress)
-    ? default<ContractAddress> == keyOrAddress.right
-    : default<ZswapCoinPublicKey> == keyOrAddress.left;
+             ? default<ContractAddress> == keyOrAddress.right
+             : default<ZswapCoinPublicKey> == keyOrAddress.left;
   }
 
   export pure circuit isKeyZero(key: ZswapCoinPublicKey): Boolean {
@@ -15,16 +15,17 @@ module Utils {
   }
 
   export pure circuit isKeyOrAddressEqual(
-    keyOrAddress: Either<ZswapCoinPublicKey, ContractAddress>,
-    other: Either<ZswapCoinPublicKey, ContractAddress>
-  ): Boolean {
+                        keyOrAddress: Either<ZswapCoinPublicKey, ContractAddress>,
+                        other: Either<ZswapCoinPublicKey, ContractAddress>
+                        ): Boolean {
     if (keyOrAddress.is_left && other.is_left) {
-      return keyOrAddress.left == other.left;
-    } else if (!keyOrAddress.is_left && !other.is_left) {
-      return keyOrAddress.right == other.right;
-    } else {
-      return false;
-    }
+       return keyOrAddress.left == other.left;
+    } else
+       if (!keyOrAddress.is_left && !other.is_left) {
+          return keyOrAddress.right == other.right;
+       } else {
+          return false;
+       }
   }
 
   export pure circuit isContractAddress(keyOrAddress: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {

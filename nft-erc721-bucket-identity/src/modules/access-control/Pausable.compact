@@ -21,7 +21,7 @@ module Pausable {
     assertNotPaused();
     _isPaused = true;
   }
-  
+
   export circuit _unpause(): [] {
     assertPaused();
     _isPaused = false;
