@@ -3,13 +3,20 @@ pragma language_version >= 0.17.0;
 module AccessControl {
   import CompactStandardLibrary;
   import "../utils/Utils" prefix Utils_;
+  import "./Initializable" prefix Initializable_;
 
   export ledger _operatorRoles: Map<Bytes<32>,
                                     Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>;
 
   export ledger _adminRoles: Map<Bytes<32>, Bytes<32>>;
 
-  export sealed ledger _DEFAULT_ADMIN_ROLE: Bytes<32>;
+  export sealed ledger _ADMIN_MASTER: Bytes<32>;
+
+  export circuit initialize(): [] {
+    Initializable_initialize();
+    _ADMIN_MASTER = default<Bytes<32>>;
+    _unsafeGrantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+  }
 
   export circuit hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
     if (_operatorRoles.member(disclose(roleId)) &&
@@ -41,6 +48,12 @@ module AccessControl {
     _grantRole(roleId, account);
   }
 
+  export circuit grantRolefromAdminMaster(
+                   roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+    assertOnlyRole(default<Bytes<32>>);
+    _grantRole(roleId, account);
+  }
+
   export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
     assertOnlyRole(getRoleAdmin(roleId));
     _revokeRole(roleId, account);
@@ -55,7 +68,8 @@ module AccessControl {
     _revokeRole(roleId, callerConfirmation);
   }
 
-  export circuit _setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+  export circuit setAdminRoleFromAdminMaster(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+    assertOnlyRole(default<Bytes<32>>);
     _adminRoles.insert(disclose(roleId), disclose(adminRole));
   }
 
@@ -66,6 +80,7 @@ module AccessControl {
 
   export circuit _unsafeGrantRole(
                    roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+    Initializable_assertInitialized();
     if (hasRole(roleId, account)) {
       return false;
     }

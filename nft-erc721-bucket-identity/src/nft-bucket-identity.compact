@@ -11,5 +11,7 @@ import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 import "./modules/identity/Identity" prefix Identity_;
 
 constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
+  AccessControl_initialize();
   NonFungibleToken_initialize(_name, _symbol);
+  BucketDEFI_initialize();
 }

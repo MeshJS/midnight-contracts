@@ -1,0 +1,8 @@
+pragma language_version >= 0.17.0;
+
+module IdentityUtils {
+  import CompactStandardLibrary;
+
+  //Identity Utils
+  
+}
