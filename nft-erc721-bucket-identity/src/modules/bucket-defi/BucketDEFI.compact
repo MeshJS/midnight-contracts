@@ -80,7 +80,7 @@ module BucketDEFI {
   export witness wit_secretNonce(): Bytes<32>;
 
   export circuit initialize(): [] {
-    Initializable_initialize();    
+    Initializable_initialize();
   }
 
   // export circuit owner(): Bytes<32> {

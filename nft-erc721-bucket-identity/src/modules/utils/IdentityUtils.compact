@@ -4,5 +4,4 @@ module IdentityUtils {
   import CompactStandardLibrary;
 
   //Identity Utils
-  
 }

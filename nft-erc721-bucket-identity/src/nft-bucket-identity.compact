@@ -14,4 +14,5 @@ constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   AccessControl_initialize();
   NonFungibleToken_initialize(_name, _symbol);
   BucketDEFI_initialize();
+  Identity_initialize();
 }

@@ -2,4 +2,56 @@ pragma language_version >= 0.17.0;
 
 module Identity {
   import CompactStandardLibrary;
+  import "./Initializable" prefix Initializable_;
+
+  //Midnight team is working mainly in 3 different solution for DIDS
+  //1. JWT: Compact Standard Library  
+  //2. MidnightOracle: Oracle for verifying general DID/VC and converting them into Midnight Native.
+  //3. MidnightNative: Midnight DIDs Smart Contract and ZK-friendly VCs
+
+  //On top of the solutions provided by Midnight. We will also maintain a custom solution for identity verification where KYC/AML is done off-chain and the Dapp owner mantains a list of verified accounts.   
+
+  //This structure will be provided by the zk Midnight team working on the library
+  export struct Certificate {
+  }
+
+  //This structure will be provided by Midnight Identus team working on the solution
+  export struct NativeCertificate {
+  }
+
+  export ledger _verifiedUsersforBuckets: Set<ZswapCoinPublicKey>;
+
+  export circuit initialize(): [] {
+    Initializable_initialize();
+  }
+
+  export circuit jWTVerification(certificate: Certificate): [] {
+    //Midnight ZK team work in progress
+    // JWT parsing
+    // Digital signature verification
+  }
+
+  export circuit midnightNativeVerification(certificate: NativeCertificate): [] {
+    //Midnight Identus team work in progress
+    // Digital signature verification
+    // Cross contract communication with Midnight DID smart contract
+    // Verify specific parameters
+  }
+
+  export circuit customVerification(): [] {
+    const user = ownPublicKey();
+    assert(_verifiedUsersforBuckets.member(user), "Identity: User not verified");
+  }
+
+  export circuit _setUser(user: ZswapCoinPublicKey): [] {
+    _verifiedUsersforBuckets.insert(user);
+  }
+
+  export circuit _removeUser(user: ZswapCoinPublicKey): [] {
+    _verifiedUsersforBuckets.remove(user);
+  }
+
+  export circuit _isUserVerified(user: ZswapCoinPublicKey): Boolean {
+    return _verifiedUsersforBuckets.member(user);
+  }
 }
