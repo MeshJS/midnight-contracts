@@ -1,12 +1,18 @@
+// Edda Labs Compact Contracts v0.0.1
 pragma language_version >= 0.17.0;
 
-// Design patterns:
-// - Initializable
-// - Pausable
-// - Concurrency-safe: use of simple, granular and critical ADTs
-// - Low fees: optimized circuits & minimal ADTs interactions
-// - High performance: use events to build complex queries offchain
-// - Privacy: commitment-based
+/**
+* @module: BucketDEFI
+*
+* @description: BucketDEFI is a module for creating and managing DEFI “buckets” that group NFT certificates under shared conditions, identity of the certificate is the public key of the owner and identity of the bucket is the public key of the owner + witness nonce + counter, so the bucket identity is not traceable.
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
 
 module BucketDEFI {
   import CompactStandardLibrary;
@@ -36,44 +42,63 @@ module BucketDEFI {
   }
 
   /**
-   * @description ZK Bucket representation during DEFI  
-   * @type {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-    * @type {Uint<64>} TokenID - Identification of the certificate
-    * @type {Either<ZswapCoinPublicKey, ContractAddress>} Owner - Original owner of the certificate
-   */
+  * @description: ZK Bucket representation during DEFI  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {Uint<64>} TokenID - Identification of the certificate
+  * @type: {Either<ZswapCoinPublicKey, ContractAddress>} Owner - Original owner of the certificate
+  * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Owner>>} 
+  */
   export ledger _zkBucketDEFI: Map<Bytes<32>,
                                    Map<Uint<64>, Either<ZswapCoinPublicKey, ContractAddress>>>;
 
   /**
-   * @description ZK Bucket Conditions  
-   * @type {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-    * @type {CONDITIONS} condition - Struct created
-   */
+  * @description: ZK Bucket Conditions  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {CONDITIONS} Condition - Struct created
+  * @type: {Map<ZK-Bucket-Identity, Condition>} 
+  */
   export ledger _zkBucketDEFIConditions: Map<Bytes<32>, CONDITIONS>;
 
   /**
-  * @description ZK Bucket representation after Settlement  
-  * @type {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-  * @type {Uint<64>} TokenID - Identification of the certificate  
+  * @description: ZK Bucket representation after Settlement  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {Uint<64>} TokenID - Identification of the certificate  
+  * @type: {Map<ZK-Bucket-Identity, Set<TokenID>>} 
   */
   export ledger _zkBucketSettled: Map<Bytes<32>, Set<Uint<64>>>;
 
   /**
-    * @description Bucket Commitment tracked with counter
-    * @type {Bytes<32>} ZK Identity - (Hash/Commitment) of owner public key + witness nonce + counter.
-    * @type {Uint<64>} Counter - Bucket counter used when calculated the commitment   
-    */
+  * @description: Bucket Commitment tracked with counter
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.
+  * @type: {Uint<64>} Counter - Bucket counter used when calculated the hash
+  * @type: {Map<ZK-Bucket-Identity, Counter>} 
+  */
   export ledger _zkBucketToCounter: Map<Bytes<32>, Uint<64>>;
 
-  // Counter ussed for calculating the bucket commitment
+  // Counter for calculating the bucket commitment
   export ledger _zkBucketCounter: Counter;
 
   /**
-     * @description Used to track verifications made by the user using a challenge
-     * @type {Bytes<32>} Challenge - Random number generated offchain specifically for a single user.   
-     * @type {Bytes<32>} ZK Bucket Identity - Set of Bucket Identity (Hash/Commitment) of owner public key + witness nonce + counter. 
-     * @cooment the circuit that updates this ADT will also emit an event 
-     */
+  * @description: Used to track verifications made by the user using a challenge
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} Challenge - Random number generated offchain specifically for a single user.   
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter. 
+  * @type: {Map<Challenge, Set<ZK-Bucket-Identity>>} 
+  */
   export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
 
   // Secret nonce used for calculating the owner commitment
