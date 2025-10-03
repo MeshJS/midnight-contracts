@@ -1,4 +1,22 @@
+// Edda Labs Compact Contracts v0.0.1
 pragma language_version >= 0.17;
+
+/**
+* @description: The main logic is running here. Modules are used to split the logic.
+*
+* @notice: Access control module is used to manage roles and permissions for automations workflows. Operator approved under the NonFungibleToken module is used to manage permissions granted by the user to external players.
+*
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
 
 import CompactStandardLibrary;
 
@@ -10,6 +28,20 @@ import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 
 import "./modules/identity/Identity" prefix Identity_;
 
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @description: Constructor circuit.
+*
+* @notice: All the initializing circuits are called here from the modules. Plus some intial settings.
+*
+* @requirements:
+* - Calling all initialized circuits from modules.
+* @param {Opaque<"string">} name_ - The name of the token.
+* @param {Opaque<"string">} symbol_ - The symbol of the token. 
+*/
 constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   AccessControl_initialize();
   NonFungibleToken_initialize(_name, _symbol);
