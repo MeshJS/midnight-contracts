@@ -1,10 +1,35 @@
 // Edda Labs Compact Contracts v0.0.1
 pragma language_version >= 0.17.0;
 
+/**
+* @module: AccessControl
+*
+* @description: An unshielded AccessControl library. This module provides a role-based access control mechanism, where roles can be used to represent a set of permissions.
+*
+* @notice: Roles are referred to by their `Bytes<32>` identifier. Admin Master is the only role that can grant and revoke adminroles {_adminRoles}. The Admin master is the default role. Each role has an associated admin role, and only accounts that have a role's admin role can update {_operatorRoles}.
+* 
+* @notice: Admin master role is initialized to the contract owner during initialization. One way to achieve/guarantee this is by using `export sealed ledger`
+*
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
+
 module AccessControl {
   import CompactStandardLibrary;
   import "../utils/Utils" prefix Utils_;
   import "./Initializable" prefix Initializable_;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
 
   export ledger _operatorRoles: Map<Bytes<32>,
                                     Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>;

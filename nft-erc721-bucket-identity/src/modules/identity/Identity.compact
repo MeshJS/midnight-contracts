@@ -11,6 +11,10 @@ pragma language_version >= 0.17.0;
 *
 * On top of the solutions provided by Midnight. We will also maintain a custom solution for identity verification where KYC/AML is done off-chain and the Dapp owner mantains a list of verified accounts.
 *
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
 * @notice: Design patterns
 * - Initializable
 * - Pausable
@@ -23,6 +27,10 @@ module Identity {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
 
+  ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
+
   /**
   * @description: Set of verified users that are allowed to create buckets 
   *
@@ -32,6 +40,10 @@ module Identity {
   * @type: {Set<owner>} 
   */
   export ledger _verifiedUsersforBuckets: Set<ZswapCoinPublicKey>;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // CIRCUITS
+  ///////////////////////////////////////////////////////////////////////////////
 
   /**
    * @description: Initializes the contract 
@@ -101,16 +113,16 @@ module Identity {
     _verifiedUsersforBuckets.insert(user);
   }
 
- /**
-   * @description: Removes a user from the verified users set
-   *
-   * @notice: This circuit is meant to be used along another circuit that runs access control mechanics.
-   *
-   * @requirements:
-   * - Remove the user in the verified users set
-   * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
-   * @return {[]} - Empty tuple.
-   */
+  /**
+    * @description: Removes a user from the verified users set
+    *
+    * @notice: This circuit is meant to be used along another circuit that runs access control mechanics.
+    *
+    * @requirements:
+    * - Remove the user in the verified users set
+    * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+    * @return {[]} - Empty tuple.
+    */
   export circuit _removeUser(user: ZswapCoinPublicKey): [] {
     _verifiedUsersforBuckets.remove(user);
   }

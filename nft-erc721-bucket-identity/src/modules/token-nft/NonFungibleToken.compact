@@ -1,9 +1,37 @@
+// Edda Labs Compact Contracts v0.0.1
 pragma language_version >= 0.17.0;
+
+/**
+* @module: NonFungibleToken
+*
+* @description: An unshielded Non-Fungible Token library with custom properties stored on-chain.
+*
+* @notice: Uint<64> is used as the token size because Ledger ADT Counter is being used to get the Token ID. This is due to the Counter maximum size being 64 bits.
+*
+* @notice: Uint<128> is used as the token balance because Uint<256>
+* cannot be supported. This is due to encoding limits on the midnight circuit backend:
+* https://github.com/midnightntwrk/compactc/issues/929
+*
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
 
 module NonFungibleToken {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
   import "../utils/Utils" prefix Utils_;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // ENUMS
+  ///////////////////////////////////////////////////////////////////////////////
 
   export enum Source {
     Solar,
@@ -29,6 +57,10 @@ module NonFungibleToken {
     RS
   }
 
+  ///////////////////////////////////////////////////////////////////////////////
+  // STRUCTS
+  ///////////////////////////////////////////////////////////////////////////////
+
   // Struct holding all attributes for a Certificate.
   export struct Certificate {
     id: Opaque<"string">, // Certificate ID from web2 system
@@ -39,25 +71,106 @@ module NonFungibleToken {
     location: Location // Location of the certificate
   }
 
-  /// Public state
+  ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
+
   export sealed ledger _name: Opaque<"string">;
   export sealed ledger _symbol: Opaque<"string">;
 
+  /**
+    * @description: New counter values will be assigned to new token IDs. 
+    *
+    * @notice: none 
+    *
+    * @type: {Counter} 
+    */
   export ledger _certificateCounter: Counter;
 
+  /**
+  * @description: Mapping from token IDs to their owner addresses(accounts).
+  *
+  * @notice: Owner addresses can be Zswap Coin public keys or contract addresses. 
+  *
+  * @type {Uint<64>} tokenId - The unique identifier for a token.
+  * @type {Either<ZswapCoinPublicKey, ContractAddress>} owner - The owner address (public key or contract).
+  * @type {Map<tokenId, owner>}
+  */
   export ledger _owners: Map<Uint<64>, Either<ZswapCoinPublicKey, ContractAddress>>;
 
+  /**
+   * @description: Mapping from account addresses to their token balances.
+   *
+   * @notice: Owner addresses can be Zswap Coin public keys or contract addresses. 
+   *
+   * @type {Either<ZswapCoinPublicKey, ContractAddress>} owner - The owner address.
+   * @type {Uint<128>} balance - The balance of the owner.
+   * @type {Map<owner, balance>}
+   */
   export ledger _balances: Map<Either<ZswapCoinPublicKey, ContractAddress>, Uint<128>>;
 
+  /**
+  * @description: Mapping from token IDs to approved addresses.
+  *
+  * @notice: Owner addresses can be Zswap Coin public keys or contract addresses. 
+  *
+  * @type {Uint<64>} tokenId - The unique identifier for a token.
+  * @type {Either<ZswapCoinPublicKey, ContractAddress>} approved - The approved address (public key or contract).
+  * @type {Map<tokenId, approved>}
+  */
   export ledger _tokenApprovals: Map<Uint<64>, Either<ZswapCoinPublicKey, ContractAddress>>;
 
+  /**
+  * @description: Mapping from owner addresses to operator approvals.
+  *
+  * @notice: Owner addresses can be Zswap Coin public keys or contract addresses. 
+  *
+  * @type {Either<ZswapCoinPublicKey, ContractAddress>} owner - The owner address.
+  * @type {Either<ZswapCoinPublicKey, ContractAddress>} operator - The operator address.
+  * @type {Boolean} approved - Whether the operator is approved.
+  * @type {Map<owner, Map<operator, approved>>}
+  */
   export ledger _operatorApprovals: Map<Either<ZswapCoinPublicKey, ContractAddress>,
                                         Map<Either<ZswapCoinPublicKey, ContractAddress>, Boolean>>;
 
+  /**
+  * @description: Mapping from token IDs to their metadata.
+  *
+  * @notice: none 
+  *
+  * @type {Uint<64>} tokenId - The unique identifier for a token.
+  * @type {Certificate} metadata - Declared as a struct
+  * @type {Map<tokenId, metadata>}
+  */
   export ledger _tokenToCertificate: Map<Uint<64>, Certificate>;
 
+  /**
+   * @description: Mapping from token IDs to their price.
+   *
+   * @notice: none 
+   *
+   * @type {Uint<64>} tokenId - The unique identifier for a token.
+   * @type {Uint<64>} price - The price of the token. Uint<64> is being used so after summation with other values, it respects max Uint<128>
+   * @type {Map<tokenId, price>}
+   */
   export ledger _tokenToPrice: Map<Uint<64>, Uint<64>>;
 
+  ///////////////////////////////////////////////////////////////////////////////
+  // CIRCUITS
+  ///////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * @description: Initializes the contract by setting the name and symbol.
+   *
+   * @notice: This MUST be called in the implementing contract's constructor. Failure to do so can lead to an irreparable contract.
+   *
+   * @requirements:
+   * - Contract is initialized.
+   * - Counter is initialized to value = 1  (first token ID)
+   * @param {Opaque<"string">} name_ - The name of the token.
+   * @param {Opaque<"string">} symbol_ - The symbol of the token. 
+   * @return {[]} - Empty tuple.
+   */
   export circuit initialize(name_: Opaque<"string">, symbol_: Opaque<"string">): [] {
     Initializable_initialize();
     _name = disclose(name_);

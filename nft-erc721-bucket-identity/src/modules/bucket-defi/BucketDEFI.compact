@@ -6,6 +6,10 @@ pragma language_version >= 0.17.0;
 *
 * @description: BucketDEFI is a module for creating and managing DEFI “buckets” that group NFT certificates under shared conditions, identity of the certificate is the public key of the owner and identity of the bucket is the public key of the owner + witness nonce + counter, so the bucket identity is not traceable.
 *
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
 * @notice: Design patterns
 * - Initializable
 * - Pausable
@@ -19,6 +23,10 @@ module BucketDEFI {
   import "./Initializable" prefix Initializable_;
   import "../token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
+  ///////////////////////////////////////////////////////////////////////////////
+  // ENUMS
+  ///////////////////////////////////////////////////////////////////////////////
+
   export enum STATUS {
     NOTOPEN,
     OPEN,
@@ -26,6 +34,10 @@ module BucketDEFI {
     SETTLED,
     CLOSED
   }
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // STRUCTS
+  ///////////////////////////////////////////////////////////////////////////////
 
   // Struct holding all conditions for a bucket.
   export struct CONDITIONS {
@@ -40,6 +52,10 @@ module BucketDEFI {
     startDate: Uint<64>, // Start date of the bucket
     endDate: Uint<64>, // End date of the bucket
   }
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
 
   /**
   * @description: ZK Bucket representation during DEFI  
@@ -101,8 +117,16 @@ module BucketDEFI {
   */
   export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
 
+  ///////////////////////////////////////////////////////////////////////////////
+  // WITNESS
+  ///////////////////////////////////////////////////////////////////////////////
+
   // Secret nonce used for calculating the owner commitment
   export witness wit_secretNonce(): Bytes<32>;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // CIRCUITS
+  ///////////////////////////////////////////////////////////////////////////////
 
   export circuit initialize(): [] {
     Initializable_initialize();
