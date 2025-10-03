@@ -10,6 +10,8 @@ pragma language_version >= 0.17.0;
 * 
 * @notice: Admin master role is initialized to the contract owner during initialization. One way to achieve/guarantee this is by using `export sealed ledger`
 *
+* @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication
@@ -83,13 +85,22 @@ module AccessControl {
   export circuit initialize(): [] {
     Initializable_initialize();
     _ADMIN_MASTER = default<Bytes<32>>;
-    _unsafeGrantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
     _adminRoles.insert(pad(32, "minter"), pad(32, "minterAdmin"));
     _adminRoles.insert(pad(32, "matcher"), pad(32, "matcherAdmin"));
     _adminRoles.insert(pad(32, "settler"), pad(32, "settlerAdmin"));
   }
 
-  export circuit hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+  /**
+    * @description: Returns `true` if `account` is assigned to the `roleId`.
+    *
+    * @requirements:
+    * - Check in the map `_operatorRoles` if `roleId` is assigned to `account`.
+    * @param {Bytes<32>} roleId - The role identifier.
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+    * @return {Boolean} - Whether the account has the specified role.
+    */
+  export circuit _hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
     if (_operatorRoles.member(disclose(roleId)) &&
         _operatorRoles.lookup(roleId).member(disclose(account))) {
        return _operatorRoles.lookup(roleId).lookup(disclose(account));
@@ -99,15 +110,52 @@ module AccessControl {
     }
   }
 
-  export circuit assertOnlyRole(roleId: Bytes<32>): [] {
+  /**
+   * @description: Reverts if `ownPublicKey()` is missing `roleId`.
+   *
+   * Requirements:
+   * - The caller must have `roleId`.
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _assertOnlyRole(roleId: Bytes<32>): [] {
     _checkRole(roleId, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
   }
 
+  /**
+   * @description: Reverts if `account` is missing `roleId`.
+   *
+   * Requirements:
+   * - `account` must have `roleId`.
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+   * @return {[]} - Empty tuple.
+   */
   export circuit _checkRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    assert(hasRole(roleId, account), "AccessControl: unauthorized account");
+    assert(_hasRole(roleId, account), "AccessControl: unauthorized account");
+  }
+
+  /**
+   * @description: Add a new admin master account if transaction is created from an existing admin master account.
+   *
+   * @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if transaction is created from an existing admin master account
+   * - Grant admin master role to the new admin master account
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit setAdminMasterAccountFromExistingAdminMaster(
+                   account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+    Initializable_assertInitialized();
+    _assertOnlyRole(default<Bytes<32>>);
+    _grantRole(default<Bytes<32>>, account);
   }
 
   export circuit getRoleAdmin(roleId: Bytes<32>): Bytes<32> {
+    Initializable_assertInitialized();
     if (_adminRoles.member(disclose(roleId))) {
       return _adminRoles.lookup(disclose(roleId));
     }
@@ -115,18 +163,14 @@ module AccessControl {
   }
 
   export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    assertOnlyRole(getRoleAdmin(roleId));
-    _grantRole(roleId, account);
-  }
-
-  export circuit grantRolefromAdminMaster(
-                   roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    assertOnlyRole(default<Bytes<32>>);
+    Initializable_assertInitialized();
+    _assertOnlyRole(getRoleAdmin(roleId));
     _grantRole(roleId, account);
   }
 
   export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    assertOnlyRole(getRoleAdmin(roleId));
+    Initializable_assertInitialized();
+    _assertOnlyRole(getRoleAdmin(roleId));
     _revokeRole(roleId, account);
   }
 
@@ -134,19 +178,16 @@ module AccessControl {
                    roleId: Bytes<32>,
                    callerConfirmation: Either<ZswapCoinPublicKey, ContractAddress>
                    ): [] {
+    Initializable_assertInitialized();
     assert(callerConfirmation == left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()), "AccessControl: bad confirmation");
 
     _revokeRole(roleId, callerConfirmation);
   }
 
-  export circuit setAdminRoleFromAdminMaster(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
-    assertOnlyRole(default<Bytes<32>>);
+  export circuit setAdminRole(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    _assertOnlyRole(default<Bytes<32>>);
     _adminRoles.insert(disclose(roleId), disclose(adminRole));
-  }
-
-  export circuit _grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
-    assert(!Utils_isContractAddress(account), "AccessControl: unsafe role approval");
-    return _unsafeGrantRole(roleId, account);
   }
 
   /**
@@ -154,18 +195,15 @@ module AccessControl {
    *
    * @notice: External smart contracts cannot call the token contract at this time, so granting a role to an ContractAddress may render a circuit permanently inaccessible.
    *
-   * @requirements:
-   * - Check if Contract is initialized.
+   * @requirements:  
    * - Check if `account` has `roleId`.
    * - If `account` does not have `roleId`, insert `roleId` into `_operatorRoles` and set `account`'s permission to `true`.
    * @param {Bytes<32>} roleId - The role identifier.
    * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - A ZswapCoinPublicKey or ContractAddress.
    * @return {Boolean} roleGranted - A boolean indicating if `role` was granted.
    */
-  export circuit _unsafeGrantRole(
-                   roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
-    Initializable_assertInitialized();
-    if (hasRole(roleId, account)) {
+  export circuit _grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+    if (_hasRole(roleId, account)) {
       return false;
     }
 
@@ -180,9 +218,21 @@ module AccessControl {
     return true;
   }
 
+  /**
+   * @description: Attempts to revoke `roleId` to `account` and returns a boolean indicating if `roleId` was revoked. Internal circuit without access restriction.
+   *
+   * @notice: External smart contracts cannot call the token contract at this time, so granting a role to an ContractAddress may render a circuit permanently inaccessible.
+   *
+   * @requirements: 
+   * - Check if `account` has `roleId`.
+   * - If `account` does not have `roleId`, insert `roleId` into `_operatorRoles` and set `account`'s permission to `false`.
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - A ZswapCoinPublicKey or ContractAddress.
+   * @return {Boolean} roleRevoked - A boolean indicating if `role` was revoked.
+   */
   export circuit _revokeRole(
                    roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
-    if (!hasRole(roleId, account)) {
+    if (!_hasRole(roleId, account)) {
       return false;
     }
 

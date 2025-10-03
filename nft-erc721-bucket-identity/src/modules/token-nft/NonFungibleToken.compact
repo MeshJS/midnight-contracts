@@ -12,6 +12,8 @@ pragma language_version >= 0.17.0;
 * cannot be supported. This is due to encoding limits on the midnight circuit backend:
 * https://github.com/midnightntwrk/compactc/issues/929
 *
+* @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication

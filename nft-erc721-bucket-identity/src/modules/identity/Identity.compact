@@ -11,6 +11,8 @@ pragma language_version >= 0.17.0;
 *
 * On top of the solutions provided by Midnight. We will also maintain a custom solution for identity verification where KYC/AML is done off-chain and the Dapp owner mantains a list of verified accounts.
 *
+* @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication

@@ -6,6 +6,8 @@ pragma language_version >= 0.17;
 *
 * @notice: Access control module is used to manage roles and permissions for automations workflows. Operator approved under the NonFungibleToken module is used to manage permissions granted by the user to external players.
 *
+* @notice: No need to check for initialized circuit because it is checked in the modules.
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication
@@ -28,6 +30,8 @@ import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 
 import "./modules/identity/Identity" prefix Identity_;
 
+export { AccessControl__operatorRoles };
+
 ///////////////////////////////////////////////////////////////////////////////
 // CIRCUITS
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,4 +51,19 @@ constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   NonFungibleToken_initialize(_name, _symbol);
   BucketDEFI_initialize();
   Identity_initialize();
+}
+
+/**
+* @description: Add a new admin master account if transaction is created from an existing admin master account.
+*
+* @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
+*
+* @requirements:
+* - Call an existing function from AccessControl module.
+* @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+* @return {[]} - Empty tuple.
+*/
+export circuit setAdminMasterAccountFromExistingAdminMaster(
+                 account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_setAdminMasterAccountFromExistingAdminMaster(account);
 }

@@ -6,6 +6,8 @@ pragma language_version >= 0.17.0;
 *
 * @description: BucketDEFI is a module for creating and managing DEFI “buckets” that group NFT certificates under shared conditions, identity of the certificate is the public key of the owner and identity of the bucket is the public key of the owner + witness nonce + counter, so the bucket identity is not traceable.
 *
+* @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication

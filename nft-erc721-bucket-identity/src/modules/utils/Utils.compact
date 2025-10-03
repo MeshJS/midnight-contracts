@@ -10,26 +10,26 @@ pragma language_version >= 0.17.0;
 module Utils {
   import CompactStandardLibrary;
 
-   /**
-   * @description: Returns whether `keyOrAddress` is the zero address.
-   *
-   * @notice Midnight's burn address is represented as left<ZswapCoinPublicKey, ContractAddress>(default<ZswapCoinPublicKey>) in Compact, so we've chosen to represent the zero address as this structure as well.
-   *
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} keyOrAddress - The target value to check, either a ZswapCoinPublicKey or a ContractAddress.
-   * @return {Boolean} - Returns true if `keyOrAddress` is zero.
-   */
+  /**
+  * @description: Returns whether `keyOrAddress` is the zero address.
+  *
+  * @notice Midnight's burn address is represented as left<ZswapCoinPublicKey, ContractAddress>(default<ZswapCoinPublicKey>) in Compact, so we've chosen to represent the zero address as this structure as well.
+  *
+  * @param {Either<ZswapCoinPublicKey, ContractAddress>} keyOrAddress - The target value to check, either a ZswapCoinPublicKey or a ContractAddress.
+  * @return {Boolean} - Returns true if `keyOrAddress` is zero.
+  */
   export pure circuit isKeyOrAddressZero(keyOrAddress: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
     return isContractAddress(keyOrAddress)
              ? default<ContractAddress> == keyOrAddress.right
              : default<ZswapCoinPublicKey> == keyOrAddress.left;
   }
 
- /**
-   * @description: Returns whether `key` is the zero address.
-   *
-   * @param {ZswapCoinPublicKey} key - A ZswapCoinPublicKey
-   * @return {Boolean} - Returns true if `key` is zero.
-   */
+  /**
+    * @description: Returns whether `key` is the zero address.
+    *
+    * @param {ZswapCoinPublicKey} key - A ZswapCoinPublicKey
+    * @return {Boolean} - Returns true if `key` is zero.
+    */
   export pure circuit isKeyZero(key: ZswapCoinPublicKey): Boolean {
     const zero = default<ZswapCoinPublicKey>;
     return zero == key;
