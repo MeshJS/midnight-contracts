@@ -92,22 +92,116 @@ module AccessControl {
   }
 
   /**
-    * @description: Returns `true` if `account` is assigned to the `roleId`.
+   * @description: Grants `roleId` to `account`
+   *
+   * @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
+   *
+   * @notice: Admin master role has value of default<Bytes<32>>
+   *
+   * Requirements:
+   * - Check if initialized
+   * - The caller must have `roleId`'s admin role.
+   * - Grant role to the account
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+    Initializable_assertInitialized();
+    _assertOnlyRole(_getRoleAdmin(roleId));
+    _grantRole(roleId, account);
+  }
+
+  /**
+   * @description: Revokes `roleId` to `account`
+   *
+   * @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
+   *
+   * @notice: Admin master role has value of default<Bytes<32>>
+   *
+   * Requirements:
+   * - Check if initialized
+   * - The caller must have `roleId`'s admin role.
+   * - Revokes role to the account
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+    Initializable_assertInitialized();
+    _assertOnlyRole(_getRoleAdmin(roleId));
+    _revokeRole(roleId, account);
+  }
+
+  /**
+   * @description: Renounces own RoleID
+   *
+   * @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
+   *
+   * @notice: Admin master role has value of default<Bytes<32>>
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Renounce my own key from a specified roleID
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit renounceRole(roleId: Bytes<32>,): [] {
+    Initializable_assertInitialized();
+    const ownKey = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
+    _revokeRole(roleId, ownKey);
+  }
+
+  /**
+    * @description: Sets `adminRole` as `roleId`'s admin role.
     *
-    * @requirements:
-    * - Check in the map `_operatorRoles` if `roleId` is assigned to `account`.
+    * Requirements:
+    * - Check if initialized
+    * - Check if transaction is created from an existing admin master account
+    * - Insert an admin role to a role
+    *
     * @param {Bytes<32>} roleId - The role identifier.
-    * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
-    * @return {Boolean} - Whether the account has the specified role.
-    */
-  export circuit _hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
-    if (_operatorRoles.member(disclose(roleId)) &&
-        _operatorRoles.lookup(roleId).member(disclose(account))) {
-       return _operatorRoles.lookup(roleId).lookup(disclose(account));
+    * @param {Bytes<32>} adminRole - The admin role identifier.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    _assertOnlyRole(default<Bytes<32>>);
+    _adminRoles.insert(disclose(roleId), disclose(adminRole));
+  }
+
+  /**
+  * @description: Removes `adminRole` as `roleId`'s admin role.
+  *
+  * Requirements:
+  * - Check if initialized
+  * - Check if transaction is created from an existing admin master account
+  * - Remove an admin role from a role
+  *
+  * @param {Bytes<32>} roleId - The role identifier.
+  * @param {Bytes<32>} adminRole - The admin role identifier.
+  * @return {[]} - Empty tuple.
+  */
+  export circuit removeRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    _assertOnlyRole(default<Bytes<32>>);
+    _adminRoles.remove(disclose(roleId));
+  }
+
+  /**
+   * @description: Returns the admin role that controls `roleId` or a byte array with all zero bytes if `roleId` doesn't exist. 
+   *
+   * Requirements:
+   * - Check admin Roles map
+   *
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @return {Bytes<32>} roleAdmin - The admin role that controls `roleId`.
+   */
+  export circuit _getRoleAdmin(roleId: Bytes<32>): Bytes<32> {
+    if (_adminRoles.member(disclose(roleId))) {
+      return _adminRoles.lookup(disclose(roleId));
     }
-    else {
-       return false;
-    }
+    return default<Bytes<32>>;
   }
 
   /**
@@ -136,58 +230,22 @@ module AccessControl {
   }
 
   /**
-   * @description: Add a new admin master account if transaction is created from an existing admin master account.
-   *
-   * @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
-   *
-   * Requirements:
-   * - Check if initialized
-   * - Check if transaction is created from an existing admin master account
-   * - Grant admin master role to the new admin master account
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
-   * @return {[]} - Empty tuple.
-   */
-  export circuit setAdminMasterAccountFromExistingAdminMaster(
-                   account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    Initializable_assertInitialized();
-    _assertOnlyRole(default<Bytes<32>>);
-    _grantRole(default<Bytes<32>>, account);
-  }
-
-  export circuit getRoleAdmin(roleId: Bytes<32>): Bytes<32> {
-    Initializable_assertInitialized();
-    if (_adminRoles.member(disclose(roleId))) {
-      return _adminRoles.lookup(disclose(roleId));
+  * @description: Returns `true` if `account` is assigned to the `roleId`.
+  *
+  * @requirements:
+  * - Check in the map `_operatorRoles` if `roleId` is assigned to `account`.
+  * @param {Bytes<32>} roleId - The role identifier.
+  * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+  * @return {Boolean} - Whether the account has the specified role.
+    */
+  export circuit _hasRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): Boolean {
+    if (_operatorRoles.member(disclose(roleId)) &&
+        _operatorRoles.lookup(roleId).member(disclose(account))) {
+       return _operatorRoles.lookup(roleId).lookup(disclose(account));
     }
-    return default<Bytes<32>>;
-  }
-
-  export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    Initializable_assertInitialized();
-    _assertOnlyRole(getRoleAdmin(roleId));
-    _grantRole(roleId, account);
-  }
-
-  export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-    Initializable_assertInitialized();
-    _assertOnlyRole(getRoleAdmin(roleId));
-    _revokeRole(roleId, account);
-  }
-
-  export circuit renounceRole(
-                   roleId: Bytes<32>,
-                   callerConfirmation: Either<ZswapCoinPublicKey, ContractAddress>
-                   ): [] {
-    Initializable_assertInitialized();
-    assert(callerConfirmation == left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()), "AccessControl: bad confirmation");
-
-    _revokeRole(roleId, callerConfirmation);
-  }
-
-  export circuit setAdminRole(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
-    Initializable_assertInitialized();
-    _assertOnlyRole(default<Bytes<32>>);
-    _adminRoles.insert(disclose(roleId), disclose(adminRole));
+    else {
+       return false;
+    }
   }
 
   /**

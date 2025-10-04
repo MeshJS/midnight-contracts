@@ -4,7 +4,7 @@ pragma language_version >= 0.17;
 /**
 * @description: The main logic is running here. Modules are used to split the logic.
 *
-* @notice: Access control module is used to manage roles and permissions for automations workflows. Operator approved under the NonFungibleToken module is used to manage permissions granted by the user to external players.
+* @notice: Access control module is used to manage roles and permissions for automations workflows. Operator approvals under the NonFungibleToken module is used to manage permissions granted by the user to external players.
 *
 * @notice: No need to check for initialized circuit because it is checked in the modules.
 *
@@ -30,7 +30,7 @@ import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 
 import "./modules/identity/Identity" prefix Identity_;
 
-export { AccessControl__operatorRoles };
+export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
 
 ///////////////////////////////////////////////////////////////////////////////
 // CIRCUITS
@@ -54,16 +54,73 @@ constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
 }
 
 /**
-* @description: Add a new admin master account if transaction is created from an existing admin master account.
+* @description: Grants `roleId` to `account`
 *
-* @notice: Cross contract communication is not yet supported. So for the time being, avoid assigning admin master roles to contracts.
+* @circuitInfo k=10, rows=1032
 *
 * @requirements:
-* - Call an existing function from AccessControl module.
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
 * @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
 * @return {[]} - Empty tuple.
 */
-export circuit setAdminMasterAccountFromExistingAdminMaster(
-                 account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
-  AccessControl_setAdminMasterAccountFromExistingAdminMaster(account);
+export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_grantRole(roleId, account);
+}
+
+/**
+* @description: Revokes `roleId` to `account`
+*
+* @circuitInfo k=10, rows=854
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+* @return {[]} - Empty tuple.
+*/
+export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_revokeRole(roleId, account);
+}
+
+/**
+* @description: Renounces own RoleID
+*
+* @circuitInfo k=10, rows=431
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @return {[]} - Empty tuple.
+*/
+export circuit renounceRole(roleId: Bytes<32>,): [] {
+  AccessControl_renounceRole(roleId);
+}
+
+/**
+* @description: Sets `adminRole` as `roleId`'s admin role.
+*
+* @circuitInfo k=10, rows=449
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Bytes<32>} adminRole - The admin role identifier.
+*/
+export circuit setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+  AccessControl_setRoleAdmin(roleId, adminRole);
+}
+
+/**
+* @description: Removes `adminRole` as `roleId`'s admin role.
+*
+* @circuitInfo k=10, rows=448
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Bytes<32>} adminRole - The admin role identifier.
+*/
+export circuit removeRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+  AccessControl_removeRoleAdmin(roleId, adminRole);
 }
