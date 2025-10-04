@@ -26,8 +26,8 @@ pragma language_version >= 0.17.0;
 
 module AccessControl {
   import CompactStandardLibrary;
-  import "../utils/Utils" prefix Utils_;
   import "./Initializable" prefix Initializable_;
+  import "./Pausable" prefix Pausable_;
 
   ///////////////////////////////////////////////////////////////////////////////
   // PUBLIC STATE
@@ -84,6 +84,7 @@ module AccessControl {
   */
   export circuit initialize(): [] {
     Initializable_initialize();
+    Pausable__unpause();  
     _ADMIN_MASTER = default<Bytes<32>>;
     _grantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
     _adminRoles.insert(pad(32, "minter"), pad(32, "minterAdmin"));
@@ -100,6 +101,7 @@ module AccessControl {
    *
    * Requirements:
    * - Check if initialized
+   * - Check if not paused
    * - The caller must have `roleId`'s admin role.
    * - Grant role to the account
    * @param {Bytes<32>} roleId - The role identifier.
@@ -108,6 +110,7 @@ module AccessControl {
    */
   export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _assertOnlyRole(_getRoleAdmin(roleId));
     _grantRole(roleId, account);
   }
@@ -121,6 +124,7 @@ module AccessControl {
    *
    * Requirements:
    * - Check if initialized
+   * - Check if not paused
    * - The caller must have `roleId`'s admin role.
    * - Revokes role to the account
    * @param {Bytes<32>} roleId - The role identifier.
@@ -129,6 +133,7 @@ module AccessControl {
    */
   export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _assertOnlyRole(_getRoleAdmin(roleId));
     _revokeRole(roleId, account);
   }
@@ -142,12 +147,14 @@ module AccessControl {
    *
    * Requirements:
    * - Check if initialized
+   * - Check if not paused
    * - Renounce my own key from a specified roleID
    * @param {Bytes<32>} roleId - The role identifier.
    * @return {[]} - Empty tuple.
    */
   export circuit renounceRole(roleId: Bytes<32>,): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     const ownKey = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
     _revokeRole(roleId, ownKey);
   }
@@ -157,6 +164,7 @@ module AccessControl {
     *
     * Requirements:
     * - Check if initialized
+    * - Check if not paused
     * - Check if transaction is created from an existing admin master account
     * - Insert an admin role to a role
     *
@@ -166,6 +174,7 @@ module AccessControl {
     */
   export circuit setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _assertOnlyRole(default<Bytes<32>>);
     _adminRoles.insert(disclose(roleId), disclose(adminRole));
   }
@@ -175,6 +184,7 @@ module AccessControl {
   *
   * Requirements:
   * - Check if initialized
+  * - Check if not paused
   * - Check if transaction is created from an existing admin master account
   * - Remove an admin role from a role
   *
@@ -184,8 +194,57 @@ module AccessControl {
   */
   export circuit removeRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _assertOnlyRole(default<Bytes<32>>);
     _adminRoles.remove(disclose(roleId));
+  }
+
+    /**
+   * @description: Reverts if `ownPublicKey()` is missing `roleId`.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - The caller must have `roleId`.
+   * @param {Bytes<32>} roleId - The role identifier.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit assertOnlyRole(roleId: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    _checkRole(roleId, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+  }
+
+  /**
+   * @description: Pause Access Control calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - The caller must have `Admins master role`.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit pauseAccessControl(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    _assertOnlyRole(default<Bytes<32>>);
+    Pausable__pause();
+  }
+
+ /**
+   * @description: Unpause Access Control calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if paused
+   * - The caller must have `Admins master role`.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit unpauseAccessControl(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertPaused();
+    _assertOnlyRole(default<Bytes<32>>);
+    Pausable__unpause();
   }
 
   /**

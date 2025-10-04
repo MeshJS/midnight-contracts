@@ -33,7 +33,7 @@ import "./modules/identity/Identity" prefix Identity_;
 export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
 
 ///////////////////////////////////////////////////////////////////////////////
-// CIRCUITS
+// CIRCUITS GENERAL
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -52,6 +52,10 @@ constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   BucketDEFI_initialize();
   Identity_initialize();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS ACCESS CONTROL
+///////////////////////////////////////////////////////////////////////////////
 
 /**
 * @description: Grants `roleId` to `account`
@@ -123,4 +127,48 @@ export circuit setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
 */
 export circuit removeRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
   AccessControl_removeRoleAdmin(roleId, adminRole);
+}
+
+/**
+* @description: Reverts if `ownPublicKey()` is missing `roleId`.
+*
+* @circuitInfo k=10, rows=356
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @return {[]} - Empty tuple.
+*/
+export circuit assertOnlyRole(roleId: Bytes<32>): [] {
+  AccessControl_assertOnlyRole(roleId);
+}
+
+/**
+* @description: Pause Access Control calls.
+*
+* @circuitInfo k=10, rows=268
+*
+* @notice: Only Admin master role can pause Access Control calls.
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseAccessControl(): [] {
+  AccessControl_pauseAccessControl();
+}
+
+/**
+* @description: Unpause Access Control calls.
+*
+* @circuitInfo k=10, rows=260
+*
+* @notice: Only Admin master role can unpause Access Control calls.
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseAccessControl(): [] {
+  AccessControl_unpauseAccessControl();
 }
