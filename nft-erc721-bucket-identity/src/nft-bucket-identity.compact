@@ -32,6 +32,14 @@ import "./modules/identity/Identity" prefix Identity_;
 
 export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
 
+export { ZswapCoinPublicKey, ContractAddress, Either }
+
+ ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
+
+export ledger counter: Counter;
+
 ///////////////////////////////////////////////////////////////////////////////
 // CIRCUITS GENERAL
 ///////////////////////////////////////////////////////////////////////////////
@@ -51,6 +59,11 @@ constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   NonFungibleToken_initialize(_name, _symbol);
   BucketDEFI_initialize();
   Identity_initialize();
+}
+
+export circuit incrementCounter(roleId: Bytes<32>): [] {
+  assertOnlyRole(roleId);
+  counter.increment(1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

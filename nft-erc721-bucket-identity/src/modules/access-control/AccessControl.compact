@@ -76,20 +76,15 @@ module AccessControl {
   *
   * @requirements:
   * - Contract is initialized.
-  * - Admin master role ID is set to default.
-  * - Create and set admin roles for roles: minter, matcher, settler.
+  * - Admin master role ID is set to default.  
   * @param {Opaque<"string">} name_ - The name of the token.
   * @param {Opaque<"string">} symbol_ - The symbol of the token. 
   * @return {[]} - Empty tuple.
   */
   export circuit initialize(): [] {
-    Initializable_initialize();
-    Pausable__unpause();  
+    Initializable_initialize(); 
     _ADMIN_MASTER = default<Bytes<32>>;
     _grantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
-    _adminRoles.insert(pad(32, "minter"), pad(32, "minterAdmin"));
-    _adminRoles.insert(pad(32, "matcher"), pad(32, "matcherAdmin"));
-    _adminRoles.insert(pad(32, "settler"), pad(32, "settlerAdmin"));
   }
 
   /**
