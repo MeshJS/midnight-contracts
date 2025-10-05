@@ -8,7 +8,7 @@ import {
 } from "@midnight-ntwrk/compact-runtime";
 
 // Users private information
-const adminMaster1_privateKey = 0;
+const adminMaster_privateKey = 0;
 const minterAdmin_privateKey = 1;
 const minter_privateKey = 2;
 const matcherAdmin_privateKey = 3;
@@ -17,7 +17,7 @@ const settlerAdmin_privateKey = 5;
 const settler_privateKey = 6;
 
 // Callers
-export const adminMaster1 = utils.toHexPadded("adminMaster1");
+export const adminMaster = utils.toHexPadded("adminMaster");
 export const minterAdmin = utils.toHexPadded("minterAdmin");
 export const minter = utils.toHexPadded("minter");
 export const matcherAdmin = utils.toHexPadded("matcherAdmin");
@@ -26,16 +26,17 @@ export const settlerAdmin = utils.toHexPadded("settlerAdmin");
 export const settler = utils.toHexPadded("settler");
 
 // Encoded PK/Addresses Accounts
-const Z_adminMaster1 = utils.createEitherTestUser("adminMaster1");
-const Z_minterAdmin = utils.createEitherTestUser("minterAdmin");
-const Z_minter = utils.createEitherTestUser("minter");
-const Z_matcherAdmin = utils.createEitherTestUser("matcherAdmin");
-const Z_matcher = utils.createEitherTestUser("matcher");
-const Z_settlerAdmin = utils.createEitherTestUser("settlerAdmin");
-const Z_settler = utils.createEitherTestUser("settler");
+const Account_adminMaster = utils.createEitherTestUser("adminMaster");
+const Account_adminMaster2 = utils.createEitherTestUser("adminMaster2");
+const Account_minterAdmin = utils.createEitherTestUser("minterAdmin");
+const Account_minter = utils.createEitherTestUser("minter");
+const Account_matcherAdmin = utils.createEitherTestUser("matcherAdmin");
+const Account_matcher = utils.createEitherTestUser("matcher");
+const Account_settlerAdmin = utils.createEitherTestUser("settlerAdmin");
+const Account_settler = utils.createEitherTestUser("settler");
 
 // Roles
-const adminMaster1_ROLE = utils.zeroUint8Array();
+const adminMaster_ROLE = utils.zeroUint8Array();
 const minterAdmin_ROLE = utils.createRole("minterAdmin");
 const minter_ROLE = utils.createRole("minter");
 const matcherAdmin_ROLE = utils.createRole("matcherAdmin");
@@ -49,12 +50,12 @@ const symbol = "";
 
 function createSimulator() {
   const simulator = Simulator.deployContract(
-    adminMaster1_privateKey,
+    adminMaster_privateKey,
     name,
     symbol
   );
 
-  simulator.createPrivateState("adminMaster1", adminMaster1_privateKey);
+  simulator.createPrivateState("adminMaster", adminMaster_privateKey);
   simulator.createPrivateState("minterAdmin", minterAdmin_privateKey);
   simulator.createPrivateState("minter", minter_privateKey);
   simulator.createPrivateState("matcherAdmin", matcherAdmin_privateKey);
@@ -62,52 +63,153 @@ function createSimulator() {
   simulator.createPrivateState("settlerAdmin", settlerAdmin_privateKey);
   simulator.createPrivateState("settler", settler_privateKey);
 
-  simulator.as("adminMaster1").setRoleAdmin(minter_ROLE, minterAdmin_ROLE, adminMaster1);
-  simulator.as("adminMaster1").setRoleAdmin(matcher_ROLE, matcherAdmin_ROLE, adminMaster1);
-  simulator.as("adminMaster1").setRoleAdmin(settler_ROLE, settlerAdmin_ROLE, adminMaster1);
+  simulator
+    .as("adminMaster")
+    .setRoleAdmin(minter_ROLE, minterAdmin_ROLE, adminMaster);
+  simulator
+    .as("adminMaster")
+    .setRoleAdmin(matcher_ROLE, matcherAdmin_ROLE, adminMaster);
+  simulator
+    .as("adminMaster")
+    .setRoleAdmin(settler_ROLE, settlerAdmin_ROLE, adminMaster);
 
-  simulator.as("adminMaster1").grantRole(minterAdmin_ROLE, Z_minterAdmin, adminMaster1);
-  simulator.as("adminMaster1").grantRole(matcherAdmin_ROLE, Z_matcherAdmin, adminMaster1);
-  simulator.as("adminMaster1").grantRole(settlerAdmin_ROLE, Z_settlerAdmin, adminMaster1);
+  simulator
+    .as("adminMaster")
+    .grantRole(minterAdmin_ROLE, Account_minterAdmin, adminMaster);
+  simulator
+    .as("adminMaster")
+    .grantRole(matcherAdmin_ROLE, Account_matcherAdmin, adminMaster);
+  simulator
+    .as("adminMaster")
+    .grantRole(settlerAdmin_ROLE, Account_settlerAdmin, adminMaster);
 
-  simulator.as("minterAdmin").grantRole(minter_ROLE, Z_minter, minterAdmin);
-  simulator.as("matcherAdmin").grantRole(matcher_ROLE, Z_matcher, matcherAdmin);
-  simulator.as("settlerAdmin").grantRole(settler_ROLE, Z_settler, settlerAdmin);
+  simulator
+    .as("minterAdmin")
+    .grantRole(minter_ROLE, Account_minter, minterAdmin);
+  simulator
+    .as("matcherAdmin")
+    .grantRole(matcher_ROLE, Account_matcher, matcherAdmin);
+  simulator
+    .as("settlerAdmin")
+    .grantRole(settler_ROLE, Account_settler, settlerAdmin);
 
   return simulator;
 }
 
 let simulator: Simulator;
-let caller: CoinPublicKey;
 
 describe("Smart contract Testing", () => {
   beforeEach(() => {
     simulator = createSimulator();
   });
 
-  describe("Initial State", () => {
+  describe("Access Control module testing", () => {
     beforeEach(() => {});
 
     it("properly initializes ledger state and private state", () => {
-      const initialLedgerState = simulator.as("adminMaster1").getLedger();
-      expect(initialLedgerState.counter).toEqual(0n);
-
-      const initialPrivateState = simulator
-        .as("adminMaster1")
-        .getPrivateState();
+      const initialLedgerState = simulator.as("adminMaster").getLedger();
+      const initialPrivateState = simulator.as("adminMaster").getPrivateState();
       expect(initialPrivateState).toEqual({
-        privateValue: adminMaster1_privateKey
+        privateValue: adminMaster_privateKey
       });
     });
 
-    it("execute a circuit counter as Admin Master", () => {
-      const initialLedgerState = simulator.as("adminMaster1").incrementCounter(adminMaster1_ROLE, adminMaster1);
-      expect(initialLedgerState.counter).toEqual(1n);
+    it("Confirm the roles using assertOnlyRole", () => {
+      simulator.as("adminMaster").assertOnlyRole(adminMaster_ROLE, adminMaster);
+      simulator.as("minterAdmin").assertOnlyRole(adminMaster_ROLE, adminMaster);
+      simulator.as("minter").assertOnlyRole(adminMaster_ROLE, adminMaster);
+      simulator
+        .as("matcherAdmin")
+        .assertOnlyRole(adminMaster_ROLE, adminMaster);
+      simulator.as("matcher").assertOnlyRole(adminMaster_ROLE, adminMaster);
+      simulator
+        .as("settlerAdmin")
+        .assertOnlyRole(adminMaster_ROLE, adminMaster);
+      simulator.as("settler").assertOnlyRole(adminMaster_ROLE, adminMaster);
     });
 
-    it("execute a circuit counter as minter Admin", () => {    
-      const initialLedgerState = simulator.as("minter").incrementCounter(minter_ROLE, minter);
-      expect(initialLedgerState.counter).toEqual(1n); 
+    it("Setting Roles Admins should fail if not AdminMaster", () => {
+      expect(() => {
+        simulator
+          .as("minterAdmin")
+          .setRoleAdmin(minter_ROLE, minterAdmin_ROLE, minterAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("minter")
+          .setRoleAdmin(minter_ROLE, minterAdmin_ROLE, minterAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("matcherAdmin")
+          .setRoleAdmin(matcher_ROLE, matcherAdmin_ROLE, matcherAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("matcher")
+          .setRoleAdmin(matcher_ROLE, matcherAdmin_ROLE, matcherAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("settlerAdmin")
+          .setRoleAdmin(settler_ROLE, settlerAdmin_ROLE, settlerAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("settler")
+          .setRoleAdmin(settler_ROLE, settlerAdmin_ROLE, settlerAdmin);
+      }).toThrow();
+    });
+
+    it("Setting Roles should fail if not Admin", () => {
+      expect(() => {
+        simulator
+          .as("minterAdmin")
+          .grantRole(settler_ROLE, Account_settler, minterAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("matcherAdmin")
+          .grantRole(minter_ROLE, Account_minter, matcherAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("settlerAdmin")
+          .grantRole(matcher_ROLE, Account_matcher, settlerAdmin);
+      }).toThrow();
+      // AdminMaster can grant Admins Roles. It can also grant Accounts to roles if not Admin yet set up for that role, since AdminMaster will be the default. If the role already has a Admin, only that Admin can grant roles to Accounts.
+      expect(() => {
+        simulator
+          .as("adminMaster")
+          .grantRole(settler_ROLE, Account_settler, adminMaster);
+      }).toThrow();
+    });
+
+    it("Creating a new Admin Master", () => {
+      simulator
+        .as("adminMaster")
+        .grantRole(adminMaster_ROLE, Account_adminMaster2, adminMaster);
+      expect(() => {
+        simulator
+          .as("minterAdmin")
+          .grantRole(adminMaster_ROLE, Account_adminMaster2, minterAdmin);
+      }).toThrow();
+    });
+
+    it("Pause Access Control", () => {
+      simulator.as("adminMaster").pauseAccessControl(adminMaster);
+      expect(() => {
+        simulator
+          .as("adminMaster")
+          .setRoleAdmin(minter_ROLE, minterAdmin_ROLE, adminMaster);
+      }).toThrow();
+      simulator.as("adminMaster").unpauseAccessControl(adminMaster);
+      expect(() => {
+        simulator.as("adminMaster").unpauseAccessControl(adminMaster);
+      }).toThrow();
+      expect(() => {
+        simulator.as("minterAdmin").pauseAccessControl(minterAdmin);
+      }).toThrow();
     });
   });
 });

@@ -27,7 +27,7 @@ import {
   ContractAddress,
   encodeTokenType
 } from "@midnight-ntwrk/onchain-runtime";
-import { adminMaster1 } from "../nft-bucket-identity.test.js";
+import { adminMaster } from "../nft-bucket-identity.test.js";
 
 const config = new LogicTestingConfig();
 export const logger = await createLogger(config.logDir);
@@ -49,7 +49,7 @@ export class Simulator {
     } = this.contract.initialState(
       constructorContext(
         { privateValue: privateState.privateValue },
-        adminMaster1
+        adminMaster
       ),
       name,
       symbol
@@ -63,7 +63,7 @@ export class Simulator {
         this.contractAddress
       )
     };
-    this.userPrivateStates = { ["adminMaster1"]: currentPrivateState };
+    this.userPrivateStates = { ["adminMaster"]: currentPrivateState };
     this.updateUserPrivateState = (newPrivateState: PrivateState) => {};
   }
 
@@ -149,9 +149,9 @@ export class Simulator {
     return this.getLedger();
   }
 
-  public incrementCounter(roleId: Uint8Array, caller?: CoinPublicKey): Ledger {
+  public assertOnlyRole(roleId: Uint8Array, caller?: CoinPublicKey): Ledger {
     // Update the current context to be the result of executing the circuit.
-    const circuitResults = this.contract.impureCircuits.incrementCounter(
+    const circuitResults = this.contract.impureCircuits.assertOnlyRole(
       {
         ...this.circuitContext,
         currentZswapLocalState: caller
@@ -163,7 +163,11 @@ export class Simulator {
     return this.updateStateAndGetLedger(circuitResults);
   }
 
-  public grantRole(roleId: Uint8Array, account: Either<ZswapCoinPublicKey_, ContractAddress_>, caller?: CoinPublicKey): Ledger {
+  public grantRole(
+    roleId: Uint8Array,
+    account: Either<ZswapCoinPublicKey_, ContractAddress_>,
+    caller?: CoinPublicKey
+  ): Ledger {
     // Update the current context to be the result of executing the circuit.
     const circuitResults = this.contract.impureCircuits.grantRole(
       {
@@ -178,7 +182,11 @@ export class Simulator {
     return this.updateStateAndGetLedger(circuitResults);
   }
 
-  public setRoleAdmin(roleId: Uint8Array, adminRole: Uint8Array, caller?: CoinPublicKey): Ledger {
+  public setRoleAdmin(
+    roleId: Uint8Array,
+    adminRole: Uint8Array,
+    caller?: CoinPublicKey
+  ): Ledger {
     // Update the current context to be the result of executing the circuit.
     const circuitResults = this.contract.impureCircuits.setRoleAdmin(
       {
@@ -190,6 +198,28 @@ export class Simulator {
       roleId,
       adminRole
     );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public pauseAccessControl(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.pauseAccessControl({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public unpauseAccessControl(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.unpauseAccessControl({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
     return this.updateStateAndGetLedger(circuitResults);
   }
 }
