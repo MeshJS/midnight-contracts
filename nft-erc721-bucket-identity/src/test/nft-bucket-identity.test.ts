@@ -15,6 +15,9 @@ const matcherAdmin_privateKey = 3;
 const matcher_privateKey = 4;
 const settlerAdmin_privateKey = 5;
 const settler_privateKey = 6;
+const verifierAdmin_privateKey = 7;
+const verifier_privateKey = 8;
+
 
 // Callers
 export const adminMaster = utils.toHexPadded("adminMaster");
@@ -24,6 +27,8 @@ export const matcherAdmin = utils.toHexPadded("matcherAdmin");
 export const matcher = utils.toHexPadded("matcher");
 export const settlerAdmin = utils.toHexPadded("settlerAdmin");
 export const settler = utils.toHexPadded("settler");
+export const verifierAdmin = utils.toHexPadded("verifierAdmin");
+export const verifier = utils.toHexPadded("verifier");
 
 // Encoded PK/Addresses Accounts
 const Account_adminMaster = utils.createEitherTestUser("adminMaster");
@@ -34,6 +39,8 @@ const Account_matcherAdmin = utils.createEitherTestUser("matcherAdmin");
 const Account_matcher = utils.createEitherTestUser("matcher");
 const Account_settlerAdmin = utils.createEitherTestUser("settlerAdmin");
 const Account_settler = utils.createEitherTestUser("settler");
+const Account_verifierAdmin = utils.createEitherTestUser("verifierAdmin");
+const Account_verifier = utils.createEitherTestUser("verifier");
 
 // Roles
 const adminMaster_ROLE = utils.zeroUint8Array();
@@ -43,6 +50,8 @@ const matcherAdmin_ROLE = utils.createRole("matcherAdmin");
 const matcher_ROLE = utils.createRole("matcher");
 const settlerAdmin_ROLE = utils.createRole("settlerAdmin");
 const settler_ROLE = utils.createRole("settler");
+const verifierAdmin_ROLE = utils.createRole("verifierAdmin");
+const verifier_ROLE = utils.createRole("verifier");
 
 // Initialization
 const name = "";
@@ -62,6 +71,8 @@ function createSimulator() {
   simulator.createPrivateState("matcher", matcher_privateKey);
   simulator.createPrivateState("settlerAdmin", settlerAdmin_privateKey);
   simulator.createPrivateState("settler", settler_privateKey);
+  simulator.createPrivateState("verifierAdmin", verifierAdmin_privateKey);
+  simulator.createPrivateState("verifier", verifier_privateKey);
 
   simulator
     .as("adminMaster")
@@ -72,6 +83,9 @@ function createSimulator() {
   simulator
     .as("adminMaster")
     .setRoleAdmin(settler_ROLE, settlerAdmin_ROLE, adminMaster);
+  simulator
+    .as("adminMaster")
+    .setRoleAdmin(verifier_ROLE, verifierAdmin_ROLE, adminMaster);
 
   simulator
     .as("adminMaster")
@@ -82,6 +96,9 @@ function createSimulator() {
   simulator
     .as("adminMaster")
     .grantRole(settlerAdmin_ROLE, Account_settlerAdmin, adminMaster);
+  simulator
+    .as("adminMaster")
+    .grantRole(verifierAdmin_ROLE, Account_verifierAdmin, adminMaster);
 
   simulator
     .as("minterAdmin")
@@ -92,6 +109,9 @@ function createSimulator() {
   simulator
     .as("settlerAdmin")
     .grantRole(settler_ROLE, Account_settler, settlerAdmin);
+  simulator
+    .as("verifierAdmin")
+    .grantRole(verifier_ROLE, Account_verifier, verifierAdmin);
 
   return simulator;
 }

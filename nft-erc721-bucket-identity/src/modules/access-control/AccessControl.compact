@@ -82,7 +82,7 @@ module AccessControl {
   * @return {[]} - Empty tuple.
   */
   export circuit initialize(): [] {
-    Initializable_initialize(); 
+    Initializable_initialize();
     _ADMIN_MASTER = default<Bytes<32>>;
     _grantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
   }
@@ -194,16 +194,16 @@ module AccessControl {
     _adminRoles.remove(disclose(roleId));
   }
 
-    /**
-   * @description: Reverts if `ownPublicKey()` is missing `roleId`.
-   *
-   * Requirements:
-   * - Check if initialized
-   * - Check if not paused
-   * - The caller must have `roleId`.
-   * @param {Bytes<32>} roleId - The role identifier.
-   * @return {[]} - Empty tuple.
-   */
+  /**
+  * @description: Reverts if `ownPublicKey()` is missing `roleId`.
+  *
+  * Requirements:
+  * - Check if initialized
+  * - Check if not paused
+  * - The caller must have `roleId`.
+  * @param {Bytes<32>} roleId - The role identifier.
+  * @return {[]} - Empty tuple.
+  */
   export circuit assertOnlyRole(roleId: Bytes<32>): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
@@ -217,6 +217,7 @@ module AccessControl {
    * - Check if initialized
    * - Check if not paused
    * - The caller must have `Admins master role`.
+   * - Pause Access Control calls.
    * @return {[]} - Empty tuple.
    */
   export circuit pauseAccessControl(): [] {
@@ -226,15 +227,16 @@ module AccessControl {
     Pausable__pause();
   }
 
- /**
-   * @description: Unpause Access Control calls.
-   *
-   * Requirements:
-   * - Check if initialized
-   * - Check if paused
-   * - The caller must have `Admins master role`.
-   * @return {[]} - Empty tuple.
-   */
+  /**
+    * @description: Unpause Access Control calls.
+    *
+    * Requirements:
+    * - Check if initialized
+    * - Check if paused
+    * - The caller must have `Admins master role`.
+    * - Unpause Access Control calls.
+    * @return {[]} - Empty tuple.
+    */
   export circuit unpauseAccessControl(): [] {
     Initializable_assertInitialized();
     Pausable_assertPaused();

@@ -28,6 +28,8 @@ pragma language_version >= 0.17.0;
 module Identity {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
+  import "./Pausable" prefix Pausable_;
+  import "../access-control/AccessControl" prefix AccessControl_;
 
   ///////////////////////////////////////////////////////////////////////////////
   // PUBLIC STATE
@@ -82,7 +84,7 @@ module Identity {
    * @param {} 
    * @return {[]} - Empty tuple.
    */
-  export circuit assertCustomVerification(): [] {
+  export circuit assertOwnVerification(): [] {
     const user = ownPublicKey();
     assert(_verifiedUsersforBuckets.member(user), "Identity: User not verified");
   }
@@ -97,8 +99,82 @@ module Identity {
      * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a registered user.
      * @return {Boolean} 
      */
-  export circuit isUserCustomVerified(user: ZswapCoinPublicKey): Boolean {
-    return _verifiedUsersforBuckets.member(user);
+  export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
+    return _verifiedUsersforBuckets.member(disclose(user));
+  }
+
+  /**
+   * @description: Includes a user in the verified users set
+   *
+   * @notice: none
+   *
+   * @requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - The caller must have `verifier Role`.
+   * - Include the user in the verified users set
+   * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit setUser(user: ZswapCoinPublicKey): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    AccessControl__assertOnlyRole(1 as Field as Bytes<32>);
+    _setUser(user);
+  }
+
+  /**
+    * @description: Removes a user from the verified users set
+    *
+    * @notice: none
+    *
+    * @requirements:
+    * - Check if initialized
+    * - Check if not paused
+    * - The caller must have `verifier Role`.
+    * - Remove the user in the verified users set
+    * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit removeUser(user: ZswapCoinPublicKey): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    AccessControl__assertOnlyRole(1 as Field as Bytes<32>);
+    _removeUser(user);
+  }
+
+  /**
+   * @description: Pause Identity calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - The caller must have `Admins master role`.
+   * - Pause Identity calls.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit pauseIdentity(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    AccessControl__assertOnlyRole(default<Bytes<32>>);
+    Pausable__pause();
+  }
+
+  /**
+    * @description: Unpause Access Control calls.
+    *
+    * Requirements:
+    * - Check if initialized
+    * - Check if paused
+    * - The caller must have `Admins master role`.
+    * - Unpause Identity calls.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit unpauseIdentity(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertPaused();
+    AccessControl__assertOnlyRole(default<Bytes<32>>);
+    Pausable__unpause();
   }
 
   /**
@@ -112,7 +188,7 @@ module Identity {
    * @return {[]} - Empty tuple.
    */
   export circuit _setUser(user: ZswapCoinPublicKey): [] {
-    _verifiedUsersforBuckets.insert(user);
+    _verifiedUsersforBuckets.insert(disclose(user));
   }
 
   /**
@@ -126,6 +202,6 @@ module Identity {
     * @return {[]} - Empty tuple.
     */
   export circuit _removeUser(user: ZswapCoinPublicKey): [] {
-    _verifiedUsersforBuckets.remove(user);
+    _verifiedUsersforBuckets.remove(disclose(user));
   }
 }

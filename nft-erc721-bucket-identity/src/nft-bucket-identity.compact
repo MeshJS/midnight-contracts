@@ -30,15 +30,19 @@ import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 
 import "./modules/identity/Identity" prefix Identity_;
 
+export { ZswapCoinPublicKey, ContractAddress, Either };
+
+///////////////////////////////////////////////////////////////////////////////
+// PUBLIC STATE FROM MODULES
+///////////////////////////////////////////////////////////////////////////////
+
 export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
 
-export { ZswapCoinPublicKey, ContractAddress, Either }
+export { Identity__verifiedUsersforBuckets };
 
- ///////////////////////////////////////////////////////////////////////////////
-  // PUBLIC STATE
-  ///////////////////////////////////////////////////////////////////////////////
-
-
+///////////////////////////////////////////////////////////////////////////////
+// PUBLIC STATE
+///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
 // CIRCUITS GENERAL
@@ -179,4 +183,97 @@ export circuit pauseAccessControl(): [] {
 */
 export circuit unpauseAccessControl(): [] {
   AccessControl_unpauseAccessControl();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS IDENTITY
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @description: This circuit verifies if the user creating the transaction is a member of the verified users set 
+*
+* @circuitInfo k=xx, rows=xxx
+*
+* @requirements:
+* - Wrapper call
+* @param {} 
+*/
+export circuit assertOwnVerification(): [] {
+  Identity_assertOwnVerification();
+}
+
+/**
+* @description: This circuit verifies if the user passed as parameter is a member of the verified users set
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - Wrapper call
+* @param {ZswapCoinPublicKey} user - User public key that is a member of the verified users set.
+* @return {Boolean} 
+*/
+export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
+  return Identity_isUserVerified(user);  
+}
+
+/**
+* @description: Includes a user in the verified users set
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only verifier roles can set users
+*
+* @requirements:
+* - Wrapper call
+* @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+* @return {[]} - Empty tuple.
+*/
+export circuit setUser(user: ZswapCoinPublicKey): [] {
+  Identity_setUser(user);
+}
+
+/**
+* @description: Removes a user from the verified users set
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only verifier roles can remove users
+*
+* @requirements:
+* - Wrapper call
+* @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+* @return {[]} - Empty tuple.
+*/
+export circuit removeUser(user: ZswapCoinPublicKey): [] {
+  Identity_removeUser(user);
+}
+
+/**
+* @description: Pause Identity calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can pause Identity calls.
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseIdentity(): [] {
+  Identity_pauseIdentity();
+}
+
+/**
+* @description: Unpause Identity calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can unpause Identity calls.
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseIdentity(): [] {
+  Identity_unpauseIdentity();
 }
