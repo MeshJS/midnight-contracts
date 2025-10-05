@@ -77,14 +77,40 @@ module AccessControl {
   * @requirements:
   * - Contract is initialized.
   * - Admin master role ID is set to default.  
+  * - Set admin master role to the contract owner.
+  * - Create admin roles and roles (minterAdmin, minter, matcherAdmin, matcher, settlerAdmin, settler, verifierAdmin, verifier). Roles will be defined as numbers casted to bytes32.
+  * - Give all roles to the contract owner.
   * @param {Opaque<"string">} name_ - The name of the token.
   * @param {Opaque<"string">} symbol_ - The symbol of the token. 
   * @return {[]} - Empty tuple.
   */
   export circuit initialize(): [] {
     Initializable_initialize();
-    _ADMIN_MASTER = default<Bytes<32>>;
+    _ADMIN_MASTER = default<Bytes<32>>; //This represents 0
     _grantRole(_ADMIN_MASTER, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+
+    const minterAdmin_Role = 1 as Field as Bytes<32>;
+    const minter_Role = 2 as Field as Bytes<32>;
+    const matcherAdmin_Role = 3 as Field as Bytes<32>;
+    const matcher_Role = 4 as Field as Bytes<32>;
+    const settlerAdmin_Role = 5 as Field as Bytes<32>;
+    const settler_Role = 6 as Field as Bytes<32>;
+    const verifierAdmin_Role = 7 as Field as Bytes<32>;
+    const verifier_Role = 8 as Field as Bytes<32>;
+
+    _adminRoles.insert(minter_Role, minterAdmin_Role);
+    _adminRoles.insert(matcher_Role, matcherAdmin_Role);
+    _adminRoles.insert(settler_Role, settlerAdmin_Role);
+    _adminRoles.insert(verifier_Role, verifierAdmin_Role);
+
+    _grantRole(minter_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(matcher_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(settler_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(verifier_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(minterAdmin_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(matcherAdmin_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(settlerAdmin_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
+    _grantRole(verifierAdmin_Role, left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()));
   }
 
   /**

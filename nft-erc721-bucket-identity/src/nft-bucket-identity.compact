@@ -213,7 +213,7 @@ export circuit assertOwnVerification(): [] {
 * @return {Boolean} 
 */
 export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
-  return Identity_isUserVerified(user);  
+  return Identity_isUserVerified(user);
 }
 
 /**

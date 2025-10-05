@@ -44,14 +44,14 @@ const Account_verifier = utils.createEitherTestUser("verifier");
 
 // Roles
 const adminMaster_ROLE = utils.zeroUint8Array();
-const minterAdmin_ROLE = utils.createRole("minterAdmin");
-const minter_ROLE = utils.createRole("minter");
-const matcherAdmin_ROLE = utils.createRole("matcherAdmin");
-const matcher_ROLE = utils.createRole("matcher");
-const settlerAdmin_ROLE = utils.createRole("settlerAdmin");
-const settler_ROLE = utils.createRole("settler");
-const verifierAdmin_ROLE = utils.createRole("verifierAdmin");
-const verifier_ROLE = utils.createRole("verifier");
+const minterAdmin_ROLE = convert_bigint_to_Uint8Array(32, 1n);
+const minter_ROLE = convert_bigint_to_Uint8Array(32, 2n);
+const matcherAdmin_ROLE = convert_bigint_to_Uint8Array(32, 3n);
+const matcher_ROLE = convert_bigint_to_Uint8Array(32, 4n);
+const settlerAdmin_ROLE = convert_bigint_to_Uint8Array(32, 5n);
+const settler_ROLE = convert_bigint_to_Uint8Array(32, 6n);
+const verifierAdmin_ROLE = convert_bigint_to_Uint8Array(32, 7n);
+const verifier_ROLE = convert_bigint_to_Uint8Array(32, 8n);
 
 // Initialization
 const name = "";
@@ -73,19 +73,6 @@ function createSimulator() {
   simulator.createPrivateState("settler", settler_privateKey);
   simulator.createPrivateState("verifierAdmin", verifierAdmin_privateKey);
   simulator.createPrivateState("verifier", verifier_privateKey);
-
-  simulator
-    .as("adminMaster")
-    .setRoleAdmin(minter_ROLE, minterAdmin_ROLE, adminMaster);
-  simulator
-    .as("adminMaster")
-    .setRoleAdmin(matcher_ROLE, matcherAdmin_ROLE, adminMaster);
-  simulator
-    .as("adminMaster")
-    .setRoleAdmin(settler_ROLE, settlerAdmin_ROLE, adminMaster);
-  simulator
-    .as("adminMaster")
-    .setRoleAdmin(verifier_ROLE, verifierAdmin_ROLE, adminMaster);
 
   simulator
     .as("adminMaster")
@@ -181,7 +168,7 @@ describe("Smart contract Testing", () => {
       }).toThrow();
     });
 
-    it("Setting Roles should fail if not Admin", () => {
+    it("Setting Roles should fail if not correct Admin", () => {
       expect(() => {
         simulator
           .as("minterAdmin")
@@ -196,13 +183,7 @@ describe("Smart contract Testing", () => {
         simulator
           .as("settlerAdmin")
           .grantRole(matcher_ROLE, Account_matcher, settlerAdmin);
-      }).toThrow();
-      // AdminMaster can grant Admins Roles. It can also grant Accounts to roles if not Admin yet set up for that role, since AdminMaster will be the default. If the role already has a Admin, only that Admin can grant roles to Accounts.
-      expect(() => {
-        simulator
-          .as("adminMaster")
-          .grantRole(settler_ROLE, Account_settler, adminMaster);
-      }).toThrow();
+      }).toThrow();    
     });
 
     it("Creating a new Admin Master", () => {

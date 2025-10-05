@@ -119,7 +119,7 @@ module Identity {
   export circuit setUser(user: ZswapCoinPublicKey): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
-    AccessControl__assertOnlyRole(1 as Field as Bytes<32>);
+    AccessControl__assertOnlyRole(7 as Field as Bytes<32>);
     _setUser(user);
   }
 
@@ -139,7 +139,7 @@ module Identity {
   export circuit removeUser(user: ZswapCoinPublicKey): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
-    AccessControl__assertOnlyRole(1 as Field as Bytes<32>);
+    AccessControl__assertOnlyRole(7 as Field as Bytes<32>);
     _removeUser(user);
   }
 
