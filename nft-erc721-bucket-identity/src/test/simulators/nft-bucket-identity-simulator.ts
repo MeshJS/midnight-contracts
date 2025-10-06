@@ -222,4 +222,65 @@ export class Simulator {
     });
     return this.updateStateAndGetLedger(circuitResults);
   }
+
+  public assertOwnVerification(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.assertOwnVerification({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public setUser(user: ZswapCoinPublicKey_, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.setUser(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      user
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public removeUser(user: ZswapCoinPublicKey_, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.removeUser(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      user
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public pauseIdentity(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.pauseIdentity({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public unpauseIdentity(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.unpauseIdentity({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
 }

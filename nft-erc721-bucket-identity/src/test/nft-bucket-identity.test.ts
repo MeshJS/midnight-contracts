@@ -213,4 +213,24 @@ describe("Smart contract Testing", () => {
       }).toThrow();
     });
   });
+
+  describe("Identity module testing", () => {
+    beforeEach(() => {});
+
+    it("Pause Indentity", () => {
+      simulator.as("adminMaster").pauseIdentity(adminMaster);
+      expect(() => {
+        simulator
+          .as("adminMaster")
+          .setUser(Account_minter.left, adminMaster);
+      }).toThrow();
+      simulator.as("adminMaster").unpauseIdentity(adminMaster);
+      expect(() => {
+        simulator.as("adminMaster").unpauseIdentity(adminMaster);
+      }).toThrow();
+      expect(() => {
+        simulator.as("minterAdmin").pauseIdentity(minterAdmin);
+      }).toThrow();
+    });
+  });
 });

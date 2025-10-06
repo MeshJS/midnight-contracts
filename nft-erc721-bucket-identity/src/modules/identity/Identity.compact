@@ -28,8 +28,7 @@ pragma language_version >= 0.17.0;
 module Identity {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
-  import "./Pausable" prefix Pausable_;
-  import "../access-control/AccessControl" prefix AccessControl_;
+  import "./Pausable" prefix Pausable_;  
 
   ///////////////////////////////////////////////////////////////////////////////
   // PUBLIC STATE
@@ -111,7 +110,6 @@ module Identity {
    * @requirements:
    * - Check if initialized
    * - Check if not paused
-   * - The caller must have `verifier Role`.
    * - Include the user in the verified users set
    * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
    * @return {[]} - Empty tuple.
@@ -119,7 +117,6 @@ module Identity {
   export circuit setUser(user: ZswapCoinPublicKey): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
-    AccessControl__assertOnlyRole(7 as Field as Bytes<32>);
     _setUser(user);
   }
 
@@ -131,7 +128,6 @@ module Identity {
     * @requirements:
     * - Check if initialized
     * - Check if not paused
-    * - The caller must have `verifier Role`.
     * - Remove the user in the verified users set
     * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
     * @return {[]} - Empty tuple.
@@ -139,7 +135,6 @@ module Identity {
   export circuit removeUser(user: ZswapCoinPublicKey): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
-    AccessControl__assertOnlyRole(7 as Field as Bytes<32>);
     _removeUser(user);
   }
 
@@ -149,14 +144,12 @@ module Identity {
    * Requirements:
    * - Check if initialized
    * - Check if not paused
-   * - The caller must have `Admins master role`.
    * - Pause Identity calls.
    * @return {[]} - Empty tuple.
    */
   export circuit pauseIdentity(): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
-    AccessControl__assertOnlyRole(default<Bytes<32>>);
     Pausable__pause();
   }
 
@@ -166,14 +159,12 @@ module Identity {
     * Requirements:
     * - Check if initialized
     * - Check if paused
-    * - The caller must have `Admins master role`.
     * - Unpause Identity calls.
     * @return {[]} - Empty tuple.
     */
   export circuit unpauseIdentity(): [] {
     Initializable_assertInitialized();
     Pausable_assertPaused();
-    AccessControl__assertOnlyRole(default<Bytes<32>>);
     Pausable__unpause();
   }
 

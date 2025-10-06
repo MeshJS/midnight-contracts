@@ -224,11 +224,13 @@ export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
 * @notice: Only verifier roles can set users
 *
 * @requirements:
+* - The caller must have `verifier Role`.
 * - Wrapper call
 * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
 * @return {[]} - Empty tuple.
 */
 export circuit setUser(user: ZswapCoinPublicKey): [] {
+  assertOnlyRole(7 as Field as Bytes<32>);
   Identity_setUser(user);
 }
 
@@ -240,11 +242,13 @@ export circuit setUser(user: ZswapCoinPublicKey): [] {
 * @notice: Only verifier roles can remove users
 *
 * @requirements:
+* - The caller must have `verifier Role`.
 * - Wrapper call
 * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
 * @return {[]} - Empty tuple.
 */
 export circuit removeUser(user: ZswapCoinPublicKey): [] {
+  assertOnlyRole(7 as Field as Bytes<32>);
   Identity_removeUser(user);
 }
 
@@ -256,10 +260,12 @@ export circuit removeUser(user: ZswapCoinPublicKey): [] {
 * @notice: Only Admin master role can pause Identity calls.
 *
 * @requirements:
+* - The caller must have `Admins master role`.
 * - Wrapper call
 * @return {[]} - Empty tuple.
 */
 export circuit pauseIdentity(): [] {
+  assertOnlyRole(default<Bytes<32>>);
   Identity_pauseIdentity();
 }
 
@@ -271,9 +277,11 @@ export circuit pauseIdentity(): [] {
 * @notice: Only Admin master role can unpause Identity calls.
 *
 * @requirements:
+* - The caller must have `Admins master role`.
 * - Wrapper call
 * @return {[]} - Empty tuple.
 */
 export circuit unpauseIdentity(): [] {
+  assertOnlyRole(default<Bytes<32>>);
   Identity_unpauseIdentity();
 }
