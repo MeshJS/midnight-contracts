@@ -6,7 +6,11 @@ pragma language_version >= 0.17;
 *
 * @notice: Access control module is used to manage roles and permissions for automations workflows. Operator approvals under the NonFungibleToken module is used to manage permissions granted by the user to external players.
 *
-* @notice: No need to check for initialized circuit because it is checked in the modules.
+* @notice: Best Practices
+* - Modules are being created as in React, self-contained and with its own logic (logic-module + Initializable-module + Pausable-module).
+* - All the initializing circuits are called within the constructor. Plus some intial settings.
+* - Modules that contain State and initialization should not call other modules circuits. Only allowed at the top-level contract to avoid state errors.
+* - Utils modules only contain pure circuits.
 *
 * @notice Missing Features and Improvements:
 * - Events
@@ -230,7 +234,7 @@ export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
 * @return {[]} - Empty tuple.
 */
 export circuit setUser(user: ZswapCoinPublicKey): [] {
-  assertOnlyRole(7 as Field as Bytes<32>);
+  assertOnlyRole(8 as Field as Bytes<32>);
   Identity_setUser(user);
 }
 
@@ -248,7 +252,7 @@ export circuit setUser(user: ZswapCoinPublicKey): [] {
 * @return {[]} - Empty tuple.
 */
 export circuit removeUser(user: ZswapCoinPublicKey): [] {
-  assertOnlyRole(7 as Field as Bytes<32>);
+  assertOnlyRole(8 as Field as Bytes<32>);
   Identity_removeUser(user);
 }
 

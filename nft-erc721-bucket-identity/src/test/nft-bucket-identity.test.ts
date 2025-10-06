@@ -217,6 +217,54 @@ describe("Smart contract Testing", () => {
   describe("Identity module testing", () => {
     beforeEach(() => {});
 
+    it("Setting User should fail if not verifier", () => {
+      expect(() => {
+        simulator
+          .as("minterAdmin")
+          .setUser(Account_minter.left, minterAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("minter")
+          .setUser(Account_minter.left, minter);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("matcher")
+          .setUser(Account_matcher.left, matcher);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("settler")
+          .setUser(Account_settler.left, settler);
+      }).toThrow();     
+      simulator.as("verifier").setUser(Account_minter.left, verifier);
+    });
+
+    it("Removing User should fail if not verifier", () => {
+      expect(() => {
+        simulator
+          .as("minterAdmin")
+          .removeUser(Account_minter.left, minterAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("minter")
+          .removeUser(Account_minter.left, minter);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("matcher")
+          .removeUser(Account_matcher.left, matcher);
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("settler")
+          .removeUser(Account_settler.left, settler);
+      }).toThrow();     
+      simulator.as("verifier").removeUser(Account_minter.left, verifier);
+    });
+
     it("Pause Indentity", () => {
       simulator.as("adminMaster").pauseIdentity(adminMaster);
       expect(() => {
