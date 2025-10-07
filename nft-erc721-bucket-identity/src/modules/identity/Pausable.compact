@@ -1,0 +1,29 @@
+pragma language_version >= 0.17.0;
+
+module Pausable {
+  import CompactStandardLibrary;
+
+  export ledger _isPaused: Boolean;
+
+  export circuit isPaused(): Boolean {
+    return _isPaused;
+  }
+
+  export circuit assertPaused(): [] {
+    assert(_isPaused, "Pausable: not paused");
+  }
+
+  export circuit assertNotPaused(): [] {
+    assert(!_isPaused, "Pausable: paused");
+  }
+
+  export circuit _pause(): [] {
+    assertNotPaused();
+    _isPaused = true;
+  }
+
+  export circuit _unpause(): [] {
+    assertPaused();
+    _isPaused = false;
+  }
+}

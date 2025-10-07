@@ -1,0 +1,191 @@
+// Edda Labs Compact Contracts v0.0.1
+pragma language_version >= 0.17.0;
+
+/**
+* @module: BucketDEFI
+*
+* @description: BucketDEFI is a module for creating and managing DEFI “buckets” that group NFT certificates under shared conditions, identity of the certificate is the public key of the owner and identity of the bucket is the public key of the owner + witness nonce + counter, so the bucket identity is not traceable.
+*
+* @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
+*
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
+
+module BucketDEFI {
+  import CompactStandardLibrary;
+  import "./Initializable" prefix Initializable_;
+  import "../token-nft/NonFungibleToken" prefix NonFungibleToken_;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // ENUMS
+  ///////////////////////////////////////////////////////////////////////////////
+
+  export enum STATUS {
+    NOTOPEN,
+    OPEN,
+    FULL,
+    SETTLED,
+    CLOSED
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // STRUCTS
+  ///////////////////////////////////////////////////////////////////////////////
+
+  // Struct holding all conditions for a bucket.
+  export struct CONDITIONS {
+    source: NonFungibleToken_Source, // Type of the certificate    
+    unitPrice: Uint<64>, // unity cost energy/price
+    vintageLimit: Uint<64>, // Maximum Expiration date
+    impact: NonFungibleToken_Impact, // Impact of the certificate    
+    location: NonFungibleToken_Location, // Location of the certificate
+    status: STATUS, // Status of the bucket
+    accumulatedPrice: Uint<128>, // Accumulated price of the bucket
+    pot: Uint<128>, // Pot of the bucket
+    startDate: Uint<64>, // Start date of the bucket
+    endDate: Uint<64>, // End date of the bucket
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
+
+  /**
+  * @description: ZK Bucket representation during DEFI  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {Uint<64>} TokenID - Identification of the certificate
+  * @type: {Either<ZswapCoinPublicKey, ContractAddress>} Owner - Original owner of the certificate
+  * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Owner>>} 
+  */
+  export ledger _zkBucketDEFI: Map<Bytes<32>,
+                                   Map<Uint<64>, Either<ZswapCoinPublicKey, ContractAddress>>>;
+
+  /**
+  * @description: ZK Bucket Conditions  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {CONDITIONS} Condition - Struct created
+  * @type: {Map<ZK-Bucket-Identity, Condition>} 
+  */
+  export ledger _zkBucketDEFIConditions: Map<Bytes<32>, CONDITIONS>;
+
+  /**
+  * @description: ZK Bucket representation after Settlement  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {Uint<64>} TokenID - Identification of the certificate  
+  * @type: {Map<ZK-Bucket-Identity, Set<TokenID>>} 
+  */
+  export ledger _zkBucketSettled: Map<Bytes<32>, Set<Uint<64>>>;
+
+  /**
+  * @description: Bucket Commitment tracked with counter
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.
+  * @type: {Uint<64>} Counter - Bucket counter used when calculated the hash
+  * @type: {Map<ZK-Bucket-Identity, Counter>} 
+  */
+  export ledger _zkBucketToPublicRandomBytes: Map<Bytes<32>, Bytes<32>>;
+
+  // Counter for calculating the bucket commitment
+  export ledger _zkBucketCounter: Counter;
+
+  /**
+  * @description: Used to track verifications made by the user using a challenge
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} Challenge - Random number generated offchain specifically for a single user.   
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter. 
+  * @type: {Map<Challenge, Set<ZK-Bucket-Identity>>} 
+  */
+  export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // WITNESS
+  ///////////////////////////////////////////////////////////////////////////////
+
+  // Secret nonce used for calculating the owner commitment
+  export witness wit_secretNonce(): Bytes<32>;
+
+   // Random number generated offchain
+  export witness wit_publicRandomBytes(): Bytes<32>;  ////the random value will this generated offchain plus the value of counter as a security but all ofchain so we dont run into concusrrency issue due to the counter. 
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // CIRCUITS
+  ///////////////////////////////////////////////////////////////////////////////
+
+  export circuit initialize(): [] {
+    Initializable_initialize();
+  }
+
+  // export circuit owner(): Bytes<32> {
+  //   Initializable_assertInitialized();
+  //   return _ownerCommitment;
+  // }
+
+  // export circuit transferOwnership(newOwnerId: Bytes<32>): [] {
+  //   Initializable_assertInitialized();
+
+  //   assertOnlyOwner();
+  //   assert(newOwnerId != default<Bytes<32>>, "BucketDEFI: invalid id");
+  //   _transferOwnership(newOwnerId);
+  // }
+
+  // export circuit renounceOwnership(): [] {
+  //   Initializable_assertInitialized();
+
+  //   assertOnlyOwner();
+  //   _ownerCommitment.resetToDefault();
+  // }
+
+  // export circuit assertOnlyOwner(): [] {
+  //   Initializable_assertInitialized();
+
+  //   const nonce = wit_secretNonce();
+  //   const callerAsEither =
+  //                 Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+  //                                                               left: ownPublicKey(),
+  //                                                               right: ContractAddress { bytes: pad(32, "") } };
+  //   const id = _computeOwnerId(callerAsEither, nonce);
+  //   assert(_ownerCommitment == _computeOwnerCommitment(id, _counter), "BucketDEFI: caller is not the owner");
+  // }
+
+  // export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>,): Bytes<32> {
+  //   Initializable_assertInitialized();
+  //   return persistentHash<Vector<3, Bytes<32>>>(
+  //            [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
+  // }
+
+  // export pure circuit _computeOwnerId(
+  //                       pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
+  //   assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
+
+  //   return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
+  // }
+
+  // export circuit _transferOwnership(newOwnerId: Bytes<32>): [] {
+  //   Initializable_assertInitialized();
+
+  //   _counter.increment(1);
+  //   _ownerCommitment = _computeOwnerCommitment(disclose(newOwnerId), _counter);
+  // }
+}

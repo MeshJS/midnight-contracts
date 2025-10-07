@@ -1,0 +1,20 @@
+pragma language_version >= 0.17.0;
+
+module Initializable {
+  import CompactStandardLibrary;
+
+  export ledger _isInitialized: Boolean;
+
+  export circuit initialize(): [] {
+    assertNotInitialized();
+    _isInitialized = true;
+  }
+
+  export circuit assertInitialized(): [] {
+    assert(_isInitialized, "Initializable: contract not initialized");
+  }
+
+  export circuit assertNotInitialized(): [] {
+    assert(!_isInitialized, "Initializable: contract already initialized");
+  }
+}

@@ -1,0 +1,198 @@
+// Edda Labs Compact Contracts v0.0.1
+pragma language_version >= 0.17.0;
+
+/**
+* @module: Identity
+*
+* @description: Midnight team is working mainly in 3 different solution for DIDS
+* 1. JWT: Compact Standard Library  
+* 2. MidnightOracle: Oracle for verifying general DID/VC and converting them into Midnight Native.
+* 3. MidnightNative: Midnight DIDs Smart Contract and ZK-friendly VCs
+*
+* On top of the solutions provided by Midnight. We will also maintain a custom solution for identity verification where KYC/AML is done off-chain and the Dapp owner mantains a list of verified accounts.
+*
+* @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
+*
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
+
+module Identity {
+  import CompactStandardLibrary;
+  import "./Initializable" prefix Initializable_;
+  import "./Pausable" prefix Pausable_;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // PUBLIC STATE
+  ///////////////////////////////////////////////////////////////////////////////
+
+  /**
+  * @description: Set of verified users that are allowed to create buckets 
+  *
+  * @notice: none 
+  *
+  * @type: {ZswapCoinPublicKey} owner - Zswap Coin public key of a registered user.
+  * @type: {Set<owner>} 
+  */
+  export ledger _verifiedUsersforBuckets: Set<ZswapCoinPublicKey>;
+
+  ///////////////////////////////////////////////////////////////////////////////
+  // CIRCUITS
+  ///////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * @description: Initializes the contract 
+   *
+   * @notice: This MUST be called in the implementing contract's constructor. Failure to do so can lead to an irreparable contract.
+   *
+   * @requirements:
+   * - Contract is initialized.
+   * @param {} 
+   * @return {[]} - Empty tuple.
+   */
+  export circuit initialize(): [] {
+    Initializable_initialize();
+  }
+  /**
+  * @description: Midnight ZK team work in progress, JWT parsing, Digital signature verification
+  */
+  export circuit jWTVerification(): [] {
+  }
+
+  /**
+  * @description: Midnight Identus team work in progress, Digital signature Verification, Cross contract communication with Midnight DID smart contract, and Verify specific parameters
+  */
+  export circuit midnightNativeVerification(): [] {
+  }
+
+  /**
+   * @description: This circuit verifies if the user creating the transaction is a member of the verified users set 
+   *
+   * @notice: none
+   *
+   * @requirements:
+   * - Make sure to verify the user creating the transaction is a member of the verified users set
+   * @param {} 
+   * @return {[]} - Empty tuple.
+   */
+  export circuit assertOwnVerification(): [] {
+    const user = ownPublicKey();
+    assert(_verifiedUsersforBuckets.member(user), "Identity: User not verified");
+  }
+
+  /**
+     * @description: This circuit verifies if the user passed as parameter is a member of the verified users set 
+     *
+     * @notice: none
+     *
+     * @requirements:
+     * - Make sure to verify the user passed as parameter is a member of the verified users set
+     * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a registered user.
+     * @return {Boolean} 
+     */
+  export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
+    return _verifiedUsersforBuckets.member(disclose(user));
+  }
+
+  /**
+   * @description: Includes a user in the verified users set
+   *
+   * @notice: none
+   *
+   * @requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - Include the user in the verified users set
+   * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit setUser(user: ZswapCoinPublicKey): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    _setUser(user);
+  }
+
+  /**
+    * @description: Removes a user from the verified users set
+    *
+    * @notice: none
+    *
+    * @requirements:
+    * - Check if initialized
+    * - Check if not paused
+    * - Remove the user in the verified users set
+    * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit removeUser(user: ZswapCoinPublicKey): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    _removeUser(user);
+  }
+
+  /**
+   * @description: Pause Identity calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - Pause Identity calls.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit pauseIdentity(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    Pausable__pause();
+  }
+
+  /**
+    * @description: Unpause Access Control calls.
+    *
+    * Requirements:
+    * - Check if initialized
+    * - Check if paused
+    * - Unpause Identity calls.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit unpauseIdentity(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertPaused();
+    Pausable__unpause();
+  }
+
+  /**
+   * @description: Includes a user in the verified users set
+   *
+   * @notice: This circuit is meant to be used along another circuit that runs access control mechanics.
+   *
+   * @requirements:
+   * - Include the user in the verified users set
+   * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit _setUser(user: ZswapCoinPublicKey): [] {
+    _verifiedUsersforBuckets.insert(disclose(user));
+  }
+
+  /**
+    * @description: Removes a user from the verified users set
+    *
+    * @notice: This circuit is meant to be used along another circuit that runs access control mechanics.
+    *
+    * @requirements:
+    * - Remove the user in the verified users set
+    * @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit _removeUser(user: ZswapCoinPublicKey): [] {
+    _verifiedUsersforBuckets.remove(disclose(user));
+  }
+}

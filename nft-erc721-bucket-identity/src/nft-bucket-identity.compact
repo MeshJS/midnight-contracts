@@ -1,0 +1,291 @@
+// Edda Labs Compact Contracts v0.0.1
+pragma language_version >= 0.17;
+
+/**
+* @description: The main logic is running here. Modules are used to split the logic.
+*
+* @notice: Access control module is used to manage roles and permissions for automations workflows. Operator approvals under the NonFungibleToken module is used to manage permissions granted by the user to external players.
+*
+* @notice: Best Practices
+* - Modules are being created as in React, self-contained and with its own logic (logic-module + Initializable-module + Pausable-module).
+* - All the initializing circuits are called within the constructor. Plus some intial settings.
+* - Modules that contain State and initialization should not call other modules circuits. Only allowed at the top-level contract to avoid state errors. Calling Structs and enum between modules it is permitted.
+* - Utils modules only contain pure circuits.
+*
+* @notice Missing Features and Improvements:
+* - Events
+* - Contract-to-Contract Communication
+*
+* @notice: Design patterns
+* - Initializable
+* - Pausable
+* - Concurrency-safe: use of simple, granular and critical ADTs
+* - Low fees: optimized circuits & minimal ADTs interactions
+* - High performance: use events to build complex queries offchain
+*/
+
+import CompactStandardLibrary;
+
+import "./modules/access-control/AccessControl" prefix AccessControl_;
+
+import "./modules/token-nft/NonFungibleToken" prefix NonFungibleToken_;
+
+import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
+
+import "./modules/identity/Identity" prefix Identity_;
+
+export { ZswapCoinPublicKey, ContractAddress, Either };
+
+///////////////////////////////////////////////////////////////////////////////
+// PUBLIC STATE FROM MODULES
+///////////////////////////////////////////////////////////////////////////////
+
+export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
+
+export { Identity__verifiedUsersforBuckets };
+
+///////////////////////////////////////////////////////////////////////////////
+// PUBLIC STATE TOP LEVEL
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS GENERAL
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @description: Constructor circuit.
+*
+* @notice: All the initializing circuits are called here from the modules. Plus some intial settings.
+*
+* @requirements:
+* - Calling all initialized circuits from modules.
+* @param {Opaque<"string">} name_ - The name of the token.
+* @param {Opaque<"string">} symbol_ - The symbol of the token. 
+*/
+constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
+  AccessControl_initialize();
+  NonFungibleToken_initialize(_name, _symbol);
+  BucketDEFI_initialize();
+  Identity_initialize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS ACCESS CONTROL
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @description: Grants `roleId` to `account`
+*
+* @circuitInfo k=10, rows=1032
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+* @return {[]} - Empty tuple.
+*/
+export circuit grantRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_grantRole(roleId, account);
+}
+
+/**
+* @description: Revokes `roleId` to `account`
+*
+* @circuitInfo k=10, rows=854
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Either<ZswapCoinPublicKey, ContractAddress>} account - The account to query.
+* @return {[]} - Empty tuple.
+*/
+export circuit revokeRole(roleId: Bytes<32>, account: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  AccessControl_revokeRole(roleId, account);
+}
+
+/**
+* @description: Renounces own RoleID
+*
+* @circuitInfo k=10, rows=431
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @return {[]} - Empty tuple.
+*/
+export circuit renounceRole(roleId: Bytes<32>,): [] {
+  AccessControl_renounceRole(roleId);
+}
+
+/**
+* @description: Sets `adminRole` as `roleId`'s admin role.
+*
+* @circuitInfo k=10, rows=449
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Bytes<32>} adminRole - The admin role identifier.
+*/
+export circuit setRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+  AccessControl_setRoleAdmin(roleId, adminRole);
+}
+
+/**
+* @description: Removes `adminRole` as `roleId`'s admin role.
+*
+* @circuitInfo k=10, rows=448
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @param {Bytes<32>} adminRole - The admin role identifier.
+*/
+export circuit removeRoleAdmin(roleId: Bytes<32>, adminRole: Bytes<32>): [] {
+  AccessControl_removeRoleAdmin(roleId, adminRole);
+}
+
+/**
+* @description: Reverts if `ownPublicKey()` is missing `roleId`.
+*
+* @circuitInfo k=10, rows=356
+*
+* @requirements:
+* - Wrapper call
+* @param {Bytes<32>} roleId - The role identifier.
+* @return {[]} - Empty tuple.
+*/
+export circuit assertOnlyRole(roleId: Bytes<32>): [] {
+  AccessControl_assertOnlyRole(roleId);
+}
+
+/**
+* @description: Pause Access Control calls.
+*
+* @circuitInfo k=10, rows=268
+*
+* @notice: Only Admin master role can pause Access Control calls.
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseAccessControl(): [] {
+  AccessControl_pauseAccessControl();
+}
+
+/**
+* @description: Unpause Access Control calls.
+*
+* @circuitInfo k=10, rows=260
+*
+* @notice: Only Admin master role can unpause Access Control calls.
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseAccessControl(): [] {
+  AccessControl_unpauseAccessControl();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS IDENTITY
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @description: This circuit verifies if the user creating the transaction is a member of the verified users set 
+*
+* @circuitInfo k=xx, rows=xxx
+*
+* @requirements:
+* - Wrapper call
+* @param {} 
+*/
+export circuit assertOwnVerification(): [] {
+  Identity_assertOwnVerification();
+}
+
+/**
+* @description: This circuit verifies if the user passed as parameter is a member of the verified users set
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - Wrapper call
+* @param {ZswapCoinPublicKey} user - User public key that is a member of the verified users set.
+* @return {Boolean} 
+*/
+export circuit isUserVerified(user: ZswapCoinPublicKey): Boolean {
+  return Identity_isUserVerified(user);
+}
+
+/**
+* @description: Includes a user in the verified users set
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only verifier roles can set users
+*
+* @requirements:
+* - The caller must have `verifier Role`.
+* - Wrapper call
+* @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+* @return {[]} - Empty tuple.
+*/
+export circuit setUser(user: ZswapCoinPublicKey): [] {
+  assertOnlyRole(8 as Field as Bytes<32>);
+  Identity_setUser(user);
+}
+
+/**
+* @description: Removes a user from the verified users set
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only verifier roles can remove users
+*
+* @requirements:
+* - The caller must have `verifier Role`.
+* - Wrapper call
+* @param {ZswapCoinPublicKey} user - Zswap Coin public key of a new user.
+* @return {[]} - Empty tuple.
+*/
+export circuit removeUser(user: ZswapCoinPublicKey): [] {
+  assertOnlyRole(8 as Field as Bytes<32>);
+  Identity_removeUser(user);
+}
+
+/**
+* @description: Pause Identity calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can pause Identity calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseIdentity(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  Identity_pauseIdentity();
+}
+
+/**
+* @description: Unpause Identity calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can unpause Identity calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseIdentity(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  Identity_unpauseIdentity();
+}

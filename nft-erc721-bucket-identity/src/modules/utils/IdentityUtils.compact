@@ -1,0 +1,14 @@
+// Edda Labs Compact Contracts v0.0.1
+pragma language_version >= 0.17.0;
+
+/**
+* @module IdentityUtils.
+*
+* @description: A library for common utilities related to Identity.
+*/
+
+module IdentityUtils {
+  import CompactStandardLibrary;
+
+  //Identity Utils
+}
