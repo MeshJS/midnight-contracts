@@ -76,16 +76,3 @@ export const createEitherTestContractAddress = (str: string) => ({
 export const zeroUint8Array = (length = 32) =>
   convert_bigint_to_Uint8Array(length, 0n);
 
-export const createRole = (str: string) => {  
-  const encoder = new TextEncoder();
-
-  // Encode the text into bytes
-  const textBytes = encoder.encode(str);
-
-  // Create a 32-byte array filled with zeros
-  const result = new Uint8Array(32);
-
-  // Copy the text bytes into the beginning of the result
-  result.set(textBytes);
-  return result;
-};

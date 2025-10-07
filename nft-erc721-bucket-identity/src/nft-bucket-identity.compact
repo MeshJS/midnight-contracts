@@ -9,7 +9,7 @@ pragma language_version >= 0.17;
 * @notice: Best Practices
 * - Modules are being created as in React, self-contained and with its own logic (logic-module + Initializable-module + Pausable-module).
 * - All the initializing circuits are called within the constructor. Plus some intial settings.
-* - Modules that contain State and initialization should not call other modules circuits. Only allowed at the top-level contract to avoid state errors.
+* - Modules that contain State and initialization should not call other modules circuits. Only allowed at the top-level contract to avoid state errors. Calling Structs and enum between modules it is permitted.
 * - Utils modules only contain pure circuits.
 *
 * @notice Missing Features and Improvements:
@@ -45,7 +45,7 @@ export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl_
 export { Identity__verifiedUsersforBuckets };
 
 ///////////////////////////////////////////////////////////////////////////////
-// PUBLIC STATE
+// PUBLIC STATE TOP LEVEL
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////

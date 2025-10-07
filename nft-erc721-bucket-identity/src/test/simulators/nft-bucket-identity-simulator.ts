@@ -117,6 +117,15 @@ export class Simulator {
   updateStateAndGetLedger<T>(
     circuitResults: CircuitResults<PrivateState, T>
   ): Ledger {
+    logger.info("");
+    logger.info("");
+    logger.info("");
+    logger.info("");
+    logger.info("");
+    logger.info("");
+    logger.info("");
+    logger.info("");
+    logger.info("");
     logger.info({
       section: "Circuit Context",
       currentPrivateState: circuitResults.context.currentPrivateState,

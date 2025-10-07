@@ -49,8 +49,8 @@ module BucketDEFI {
     impact: NonFungibleToken_Impact, // Impact of the certificate    
     location: NonFungibleToken_Location, // Location of the certificate
     status: STATUS, // Status of the bucket
-    accumulatedPrice: Uint<64>, // Accumulated price of the bucket
-    pot: Uint<64>, // Pot of the bucket
+    accumulatedPrice: Uint<128>, // Accumulated price of the bucket
+    pot: Uint<128>, // Pot of the bucket
     startDate: Uint<64>, // Start date of the bucket
     endDate: Uint<64>, // End date of the bucket
   }
@@ -103,7 +103,7 @@ module BucketDEFI {
   * @type: {Uint<64>} Counter - Bucket counter used when calculated the hash
   * @type: {Map<ZK-Bucket-Identity, Counter>} 
   */
-  export ledger _zkBucketToCounter: Map<Bytes<32>, Uint<64>>;
+  export ledger _zkBucketToPublicRandomBytes: Map<Bytes<32>, Bytes<32>>;
 
   // Counter for calculating the bucket commitment
   export ledger _zkBucketCounter: Counter;
@@ -125,6 +125,9 @@ module BucketDEFI {
 
   // Secret nonce used for calculating the owner commitment
   export witness wit_secretNonce(): Bytes<32>;
+
+   // Random number generated offchain
+  export witness wit_publicRandomBytes(): Bytes<32>;  ////the random value will this generated offchain plus the value of counter as a security but all ofchain so we dont run into concusrrency issue due to the counter. 
 
   ///////////////////////////////////////////////////////////////////////////////
   // CIRCUITS

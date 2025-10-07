@@ -28,7 +28,7 @@ pragma language_version >= 0.17.0;
 module Identity {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
-  import "./Pausable" prefix Pausable_;  
+  import "./Pausable" prefix Pausable_;
 
   ///////////////////////////////////////////////////////////////////////////////
   // PUBLIC STATE
