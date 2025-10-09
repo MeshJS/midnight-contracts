@@ -28,11 +28,11 @@ import CompactStandardLibrary;
 
 import "./modules/access-control/AccessControl" prefix AccessControl_;
 
+import "./modules/identity/Identity" prefix Identity_;
+
 import "./modules/token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
 import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
-
-import "./modules/identity/Identity" prefix Identity_;
 
 export { ZswapCoinPublicKey, ContractAddress, Either };
 
@@ -43,6 +43,8 @@ export { ZswapCoinPublicKey, ContractAddress, Either };
 export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
 
 export { Identity__verifiedUsersforBuckets };
+
+export { NonFungibleToken__name, NonFungibleToken__symbol, NonFungibleToken__certificatesCreatedCounter, NonFungibleToken__owners, NonFungibleToken__balances, NonFungibleToken__tokenApprovals, NonFungibleToken__operatorApprovals, NonFungibleToken__tokenToCertificate, NonFungibleToken__tokenToPrice, NonFungibleToken_Certificate, NonFungibleToken_Location, NonFungibleToken_Impact, NonFungibleToken_Source };
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE TOP LEVEL
@@ -64,9 +66,9 @@ export { Identity__verifiedUsersforBuckets };
 */
 constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   AccessControl_initialize();
-  NonFungibleToken_initialize(_name, _symbol);
-  BucketDEFI_initialize();
   Identity_initialize();
+  NonFungibleToken_initialize(_name, _symbol);
+  BucketDEFI_initialize();  
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,4 +290,149 @@ export circuit pauseIdentity(): [] {
 export circuit unpauseIdentity(): [] {
   assertOnlyRole(default<Bytes<32>>);
   Identity_unpauseIdentity();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS TOKEN
+///////////////////////////////////////////////////////////////////////////////
+
+ /**
+   * @description Returns the number of tokens in `owner`'s account.
+   *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @requirements:
+   * - Wrapper call
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>)} owner - The account to query.
+   * @return {Uint<128>} - The number of tokens in `owner`'s account.
+   */
+  export circuit balanceOf(owner: Either<ZswapCoinPublicKey, ContractAddress>): Uint<128> {
+    return NonFungibleToken_balanceOf(owner);
+  }
+
+    /**
+   * @description Returns the owner of the `tokenId` token.
+   *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @requirements:
+   * - Wrapper call
+   * @param {Uint<128>} tokenId - The identifier for a token.
+   * @return {Either<ZswapCoinPublicKey, ContractAddress>} - The account that owns the token.
+   */
+  export circuit ownerOf(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {    
+    return NonFungibleToken_ownerOf(tokenId);
+  }
+
+   /**
+   * @description Returns the token Certificate for the given `tokenId`. Reverts if the tokenCertificate does not exist.
+   *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @requirements:
+   * - Wrapper call
+   * @param {Uint<128>} tokenId - The identifier for a token.
+   * @return {Certificate} - the token metadata
+   */
+  export circuit tokenCertificate(tokenId: Uint<128>): NonFungibleToken_Certificate {
+    return NonFungibleToken_tokenCertificate(tokenId);
+  }
+
+    /**
+  * @description Returns the token Price for the given `tokenId`. Reverts if the tokenPrice does not exist.
+  *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @requirements:
+   * - Wrapper call
+  * @param {Uint<128>} tokenId - The identifier for a token.
+  * @return {Uint<64>} - the price of the token
+  */
+  export circuit tokenPrice(tokenId: Uint<128>): Uint<64> {
+    return NonFungibleToken_tokenPrice(tokenId);
+  }
+
+     /**
+   * @description Mints `tokenId` and transfers it to `to`.
+   *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @requirements:
+   * - The caller must have `Minter role`.
+   * - Wrapper call
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
+   * @param {Uint<128>} tokenId - The token identifier
+   * @param {Certificate} tokenCertificate - The token metadata
+   * @return {[]} - Empty tuple.
+   */
+  export circuit mint(to: Either<ZswapCoinPublicKey, ContractAddress>, tokenId: Uint<128>, tokenCertificate: NonFungibleToken_Certificate, price: Uint<64>): [] {
+    assertOnlyRole(2 as Field as Bytes<32>);
+    return NonFungibleToken_mint(to, tokenId, tokenCertificate, price);
+  }
+
+   /**
+   * @description Destroys `tokenId`. The approval is cleared when the token is burned. This circuit does not check if the sender is authorized to operate on the token.
+   *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @requirements:
+   * - The caller must have `Settler role`.
+   * - Wrapper call
+   * @param {Uint<128>} tokenId - The token to burn
+   * @return {[]} - Empty tuple.
+   */
+  export circuit burn(tokenId: Uint<128>): [] {
+    assertOnlyRole(6 as Field as Bytes<32>);
+    return NonFungibleToken_burn(tokenId);
+  }
+
+   /**
+   * @description Sets the price for the given `tokenId`.
+   *
+   * @circuitInfo k=xx, rows=xx
+   *
+   * @notice Normally this is set during minting, but can be changed afterward to adjust market conditions
+   *
+  * @requirements:
+   * - Wrapper call   
+   * @param {Uint<128>} tokenId - The identifier of the token.
+   * @param {Uint<64>} price - The price of the token.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit setTokenPrice(tokenId: Uint<128>, price: Uint<64>): [] {    
+    NonFungibleToken_setTokenPrice(tokenId, price);
+  }
+
+  /**
+* @description: Pause Token calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can pause Token calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseToken(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  NonFungibleToken_pauseToken();
+}
+
+/**
+* @description: Unpause Token calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can unpause Identity calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseToken(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  NonFungibleToken_unpauseToken();
 }

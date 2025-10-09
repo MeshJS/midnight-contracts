@@ -27,6 +27,7 @@ pragma language_version >= 0.17.0;
 module NonFungibleToken {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
+  import "./Pausable" prefix Pausable_;
   import "../utils/Utils" prefix Utils_;
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -181,12 +182,14 @@ module NonFungibleToken {
    * @description Returns the number of tokens in `owner`'s account.
    *
    * Requirements:
-   * - The contract is initialized.   *
+   * - The contract is initialized. 
+   * - Check if not paused
    * @param {Either<ZswapCoinPublicKey, ContractAddress>)} owner - The account to query.
    * @return {Uint<128>} - The number of tokens in `owner`'s account.
    */
   export circuit balanceOf(owner: Either<ZswapCoinPublicKey, ContractAddress>): Uint<128> {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     if (!_balances.member(disclose(owner))) {
       return 0;
     }
@@ -199,27 +202,31 @@ module NonFungibleToken {
    *
    * Requirements:
    * - The contract is initialized.
+   * - Check if not paused
    * - The `tokenId` must exist and returns the owner   *
    * @param {Uint<128>} tokenId - The identifier for a token.
    * @return {Either<ZswapCoinPublicKey, ContractAddress>} - The account that owns the token.
    */
   export circuit ownerOf(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     return _requireOwned(tokenId);
   }
 
   /**
    * @description Returns the token Certificate for the given `tokenId`. Reverts if the tokenCertificate does not exist.
    *
-   * Requirements:   *
+   * Requirements:  
    * - The contract is initialized.
+   * - Check if not paused
    * - The `tokenId` must exist.
-   * - The token metadata must exist   *
+   * - The token metadata must exist  
    * @param {Uint<128>} tokenId - The identifier for a token.
    * @return {Certificate} - the token metadata
    */
   export circuit tokenCertificate(tokenId: Uint<128>): Certificate {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _requireOwned(tokenId);
 
     assert(_tokenToCertificate.member(disclose(tokenId)), "Token does not exist");
@@ -229,8 +236,9 @@ module NonFungibleToken {
   /**
   * @description Returns the token Price for the given `tokenId`. Reverts if the tokenPrice does not exist.
   *
-  * Requirements:   *
+  * Requirements:  
   * - The contract is initialized.
+  * - Check if not paused
   * - The `tokenId` must exist.
   * - The token price must be set
   * @param {Uint<128>} tokenId - The identifier for a token.
@@ -238,6 +246,7 @@ module NonFungibleToken {
   */
   export circuit tokenPrice(tokenId: Uint<128>): Uint<64> {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _requireOwned(tokenId);
 
     assert(_tokenToPrice.member(disclose(tokenId)), "Token does not exist");
@@ -250,8 +259,9 @@ module NonFungibleToken {
     *
     * Only a single account can be approved at a time, so approving the zero address clears previous approvals.
     *
-    * Requirements:   *
+    * Requirements: 
     * - The contract is initialized.
+    * - Check if not paused
     * - The caller must either own the token or be an approved operator.
     * - `tokenId` must exist.
     *
@@ -261,6 +271,7 @@ module NonFungibleToken {
     */
   export circuit approve(to: Either<ZswapCoinPublicKey, ContractAddress>, tokenId: Uint<128>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     const auth = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
     _approve(to, tokenId, auth);
   }
@@ -270,12 +281,14 @@ module NonFungibleToken {
     *
     * Requirements:   
     * - The contract is initialized.
+    * - Check if not paused
     * - `tokenId` must exist.   
     * @param {Uint<128>} tokenId - The token an account may be approved to manage
     * @return {Either<ZswapCoinPublicKey, ContractAddress>} Operator- The account approved to manage the token
     */
   export circuit getApproved(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _requireOwned(tokenId);
 
     return _getApproved(tokenId);
@@ -287,6 +300,7 @@ module NonFungibleToken {
     *
     * Requirements:
     * - The contract is initialized.
+    * - Check if not paused
     * - The `operator` cannot be the address zero.
     * @param {Either<ZswapCoinPublicKey, ContractAddress>} operator - An operator to manage the caller's tokens
     * @param {Boolean} approved - A boolean determining if `operator` may manage all tokens of the caller
@@ -295,6 +309,7 @@ module NonFungibleToken {
   export circuit setApprovalForAll(
                    operator: Either<ZswapCoinPublicKey, ContractAddress>, approved: Boolean): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     const owner = left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey());
     _setApprovalForAll(owner, operator, approved);
   }
@@ -304,6 +319,7 @@ module NonFungibleToken {
   *
   * Requirements:
   * - The contract is initialized.
+  * - Check if not paused
   * @param {Either<ZswapCoinPublicKey, ContractAddress>} owner - The owner of a token
   * @param {Either<ZswapCoinPublicKey, ContractAddress>} operator - An account that may operate on `owner`'s tokens
   * @return {Boolean} - A boolean determining if `operator` is allowed to manage all of the tokens of `owner` 
@@ -313,6 +329,7 @@ module NonFungibleToken {
                    operator: Either<ZswapCoinPublicKey, ContractAddress>
                    ): Boolean {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     return _isApprovedForAll(owner, operator);
   }
 
@@ -323,6 +340,7 @@ module NonFungibleToken {
     *
     * Requirements:
     * - The contract is initialized.
+    * - Check if not paused
     * - `tokenId` token must be owned by `from`.
     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
     *
@@ -337,7 +355,7 @@ module NonFungibleToken {
                    tokenId: Uint<128>
                    ): [] {
     Initializable_assertInitialized();
-
+    Pausable_assertNotPaused();
     _transferFrom(from, to, tokenId);
   }
 
@@ -348,6 +366,7 @@ module NonFungibleToken {
    *
    * Requirements:
    * - The contract is initialized.
+   * - Check if not paused
    * - `tokenId` token must be owned by `from`.
    *
    * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The source account of the token transfer
@@ -361,7 +380,7 @@ module NonFungibleToken {
                    tokenId: Uint<128>
                    ): [] {
     Initializable_assertInitialized();
-
+    Pausable_assertNotPaused();
     _transfer(from, to, tokenId);
   }
 
@@ -370,32 +389,86 @@ module NonFungibleToken {
    *
    * Requirements:
    * - The contract is initialized.
+   * - Check if not paused
    * - Increment by one the counter value
-   *
    * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The account receiving `tokenId`
+   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
    * @param {Uint<128>} tokenId - The token identifier
    * @param {Certificate} tokenCertificate - The token metadata
    * @return {[]} - Empty tuple.
    */
-  export circuit mint(to: Either<ZswapCoinPublicKey, ContractAddress>, tokenId: Uint<128>, tokenCertificate: Certificate): [] {
+  export circuit mint(to: Either<ZswapCoinPublicKey, ContractAddress>, tokenId: Uint<128>, tokenCertificate: Certificate, price: Uint<64>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _certificatesCreatedCounter.increment(1);
     _mint(to, tokenId, tokenCertificate);
+    _setTokenPrice(tokenId, price);
   }
 
-    /**
+   /**
    * @description Destroys `tokenId`. The approval is cleared when the token is burned. This circuit does not check if the sender is authorized to operate on the token.
    *  
    * Requirements:  
    * - The contract is initialized.
+   * - Check if not paused
    * - `tokenId` must exist.
-   *
    * @param {Uint<128>} tokenId - The token to burn
    * @return {[]} - Empty tuple.
    */
   export circuit burn(tokenId: Uint<128>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     _burn(tokenId);
+  }
+
+  /**
+   * @description Sets the price for the given `tokenId`.
+   *
+   * @notice Normally this is set during minting, but can be changed afterward to adjust market conditions
+   *
+   * Requirements:
+   * - The contract is initialized.
+   * - Check if not paused 
+   * - Only the owner can update the price after initilized   
+   * @param {Uint<128>} tokenId - The identifier of the token.
+   * @param {Uint<64>} price - The price of the token.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit setTokenPrice(tokenId: Uint<128>, price: Uint<64>): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    assert(_ownerOf(tokenId) == left<ZswapCoinPublicKey, ContractAddress>(ownPublicKey()), "Not owner");
+    _setTokenPrice(tokenId, price);
+  }
+
+  /**
+   * @description: Pause Token calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - Pause Token calls.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit pauseToken(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    Pausable__pause();
+  }
+
+  /**
+    * @description: Unpause Token calls.
+    *
+    * Requirements:
+    * - Check if initialized
+    * - Check if paused
+    * - Unpause Token calls.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit unpauseToken(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertPaused();
+    Pausable__unpause();
   }
 
   /**

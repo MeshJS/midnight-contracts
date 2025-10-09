@@ -14,7 +14,8 @@ import {
   ledger,
   ContractAddress as ContractAddress_,
   ZswapCoinPublicKey as ZswapCoinPublicKey_,
-  Either
+  Either,
+  type NonFungibleToken_Certificate, NonFungibleToken_Source, NonFungibleToken_Impact, NonFungibleToken_Location
 } from "../../managed/nft-bucket-identity/contract/index.cjs";
 import {
   type PrivateState,
@@ -28,6 +29,8 @@ import {
   encodeTokenType
 } from "@midnight-ntwrk/onchain-runtime";
 import { adminMaster } from "../nft-bucket-identity.test.js";
+
+export { type NonFungibleToken_Certificate, NonFungibleToken_Source, NonFungibleToken_Impact, NonFungibleToken_Location };
 
 const config = new LogicTestingConfig();
 export const logger = await createLogger(config.logDir);
@@ -291,5 +294,82 @@ export class Simulator {
         : this.circuitContext.currentZswapLocalState
     });
     return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public mint(to: Either<ZswapCoinPublicKey_, ContractAddress_>, tokenId: bigint, tokenCertificate: NonFungibleToken_Certificate, price: bigint, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.mint({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, to, tokenId, tokenCertificate, price);
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public setTokenPrice(tokenId: bigint, price: bigint, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.setTokenPrice({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, tokenId, price);
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public burn(tokenId: bigint, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.burn({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, tokenId);
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public balanceOf(owner: Either<ZswapCoinPublicKey_, ContractAddress_>, caller?: CoinPublicKey): bigint {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.balanceOf({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, owner);
+    return circuitResults.result;
+  }
+
+  public ownerOf(tokenId: bigint, caller?: CoinPublicKey): Either<ZswapCoinPublicKey_, ContractAddress_> {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.ownerOf({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, tokenId);
+    return circuitResults.result;
+  }
+
+  public tokenCertificate(tokenId: bigint, caller?: CoinPublicKey): NonFungibleToken_Certificate {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.tokenCertificate({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, tokenId);
+    return circuitResults.result;
+  }
+
+  public tokenPrice(tokenId: bigint, caller?: CoinPublicKey): bigint {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.tokenPrice({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, tokenId);
+    return circuitResults.result;
   }
 }

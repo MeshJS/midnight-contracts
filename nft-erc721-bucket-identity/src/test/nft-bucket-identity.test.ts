@@ -1,4 +1,10 @@
-import { Simulator } from "./simulators/nft-bucket-identity-simulator";
+import {
+  NonFungibleToken_Certificate,
+  NonFungibleToken_Source,
+  NonFungibleToken_Impact,
+  NonFungibleToken_Location,
+  Simulator
+} from "./simulators/nft-bucket-identity-simulator";
 import { describe, it, expect, beforeEach } from "vitest";
 import { randomBytes } from "./utils/utils";
 import * as utils from "./utils/utils";
@@ -17,7 +23,6 @@ const settlerAdmin_privateKey = 5;
 const settler_privateKey = 6;
 const verifierAdmin_privateKey = 7;
 const verifier_privateKey = 8;
-
 
 // Callers
 export const adminMaster = utils.toHexPadded("adminMaster");
@@ -53,9 +58,28 @@ const settler_ROLE = convert_bigint_to_Uint8Array(32, 6n);
 const verifierAdmin_ROLE = convert_bigint_to_Uint8Array(32, 7n);
 const verifier_ROLE = convert_bigint_to_Uint8Array(32, 8n);
 
+// Token Metadata
+const TOKENID_1: bigint = BigInt(1);
+const TOKENID_2: bigint = BigInt(2);
+const TOKENID_3: bigint = BigInt(3);
+const NON_EXISTENT_TOKEN: bigint = BigInt(0xdead);
+
+// Certificates
+const Certificate_1: NonFungibleToken_Certificate = {
+  id: "Certificate_1",
+  source: NonFungibleToken_Source.Biomass,
+  generation: 10n,
+  vintage: 20n,
+  impact: NonFungibleToken_Impact.High,
+  location: NonFungibleToken_Location.RJ
+};
+
+// Price
+const Certificate_1_Price = 10n;
+
 // Initialization
-const name = "";
-const symbol = "";
+const name = "NAME";
+const symbol = "SYMBOL";
 
 function createSimulator() {
   const simulator = Simulator.deployContract(
@@ -115,6 +139,8 @@ describe("Smart contract Testing", () => {
 
     it("properly initializes ledger state and private state", () => {
       const initialLedgerState = simulator.as("adminMaster").getLedger();
+      expect(initialLedgerState.NonFungibleToken__name).toEqual("NAME");
+      expect(initialLedgerState.NonFungibleToken__symbol).toEqual("SYMBOL");
       const initialPrivateState = simulator.as("adminMaster").getPrivateState();
       expect(initialPrivateState).toEqual({
         privateValue: adminMaster_privateKey
@@ -183,7 +209,7 @@ describe("Smart contract Testing", () => {
         simulator
           .as("settlerAdmin")
           .grantRole(matcher_ROLE, Account_matcher, settlerAdmin);
-      }).toThrow();    
+      }).toThrow();
     });
 
     it("Creating a new Admin Master", () => {
@@ -219,25 +245,17 @@ describe("Smart contract Testing", () => {
 
     it("Setting User should fail if not verifier", () => {
       expect(() => {
-        simulator
-          .as("minterAdmin")
-          .setUser(Account_minter.left, minterAdmin);
+        simulator.as("minterAdmin").setUser(Account_minter.left, minterAdmin);
       }).toThrow();
       expect(() => {
-        simulator
-          .as("minter")
-          .setUser(Account_minter.left, minter);
+        simulator.as("minter").setUser(Account_minter.left, minter);
       }).toThrow();
       expect(() => {
-        simulator
-          .as("matcher")
-          .setUser(Account_matcher.left, matcher);
+        simulator.as("matcher").setUser(Account_matcher.left, matcher);
       }).toThrow();
       expect(() => {
-        simulator
-          .as("settler")
-          .setUser(Account_settler.left, settler);
-      }).toThrow();     
+        simulator.as("settler").setUser(Account_settler.left, settler);
+      }).toThrow();
       simulator.as("verifier").setUser(Account_minter.left, verifier);
     });
 
@@ -248,29 +266,21 @@ describe("Smart contract Testing", () => {
           .removeUser(Account_minter.left, minterAdmin);
       }).toThrow();
       expect(() => {
-        simulator
-          .as("minter")
-          .removeUser(Account_minter.left, minter);
+        simulator.as("minter").removeUser(Account_minter.left, minter);
       }).toThrow();
       expect(() => {
-        simulator
-          .as("matcher")
-          .removeUser(Account_matcher.left, matcher);
+        simulator.as("matcher").removeUser(Account_matcher.left, matcher);
       }).toThrow();
       expect(() => {
-        simulator
-          .as("settler")
-          .removeUser(Account_settler.left, settler);
-      }).toThrow();     
+        simulator.as("settler").removeUser(Account_settler.left, settler);
+      }).toThrow();
       simulator.as("verifier").removeUser(Account_minter.left, verifier);
     });
 
     it("Pause Indentity", () => {
       simulator.as("adminMaster").pauseIdentity(adminMaster);
       expect(() => {
-        simulator
-          .as("adminMaster")
-          .setUser(Account_minter.left, adminMaster);
+        simulator.as("adminMaster").setUser(Account_minter.left, adminMaster);
       }).toThrow();
       simulator.as("adminMaster").unpauseIdentity(adminMaster);
       expect(() => {
@@ -278,6 +288,132 @@ describe("Smart contract Testing", () => {
       }).toThrow();
       expect(() => {
         simulator.as("minterAdmin").pauseIdentity(minterAdmin);
+      }).toThrow();
+    });
+  });
+
+  describe("Token module testing", () => {
+    beforeEach(() => {});
+
+    it("Minting a token and checking status", () => {
+      simulator
+        .as("minter")
+        .mint(
+          Account_minter,
+          TOKENID_1,
+          Certificate_1,
+          Certificate_1_Price,
+          minter
+        );
+      expect(() => {
+        simulator
+          .as("minterAdmin")
+          .mint(
+            Account_minter,
+            TOKENID_1,
+            Certificate_1,
+            Certificate_1_Price,
+            minterAdmin
+          );
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("verifier")
+          .mint(
+            Account_minter,
+            TOKENID_1,
+            Certificate_1,
+            Certificate_1_Price,
+            verifier
+          );
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("matcher")
+          .mint(
+            Account_minter,
+            TOKENID_1,
+            Certificate_1,
+            Certificate_1_Price,
+            matcher
+          );
+      }).toThrow();
+      expect(() => {
+        simulator
+          .as("settler")
+          .mint(
+            Account_minter,
+            TOKENID_1,
+            Certificate_1,
+            Certificate_1_Price,
+            settler
+          );
+      }).toThrow();
+
+      //checking status
+      expect(simulator.as("minter").balanceOf(Account_minter)).toBe(1n);
+      expect(() => {
+        expect(simulator.as("minter").balanceOf(Account_minter)).toBe(2n);
+      }).toThrow();
+      expect(simulator.as("minter").ownerOf(TOKENID_1)).toStrictEqual(
+        Account_minter
+      );
+      expect(simulator.as("minter").tokenCertificate(TOKENID_1)).toStrictEqual(
+        Certificate_1
+      );
+      expect(simulator.as("minter").tokenPrice(TOKENID_1)).toBe(10n);
+      expect(() => {
+        expect(simulator.as("minter").tokenPrice(TOKENID_1)).toBe(11n);
+      }).toThrow();
+
+      // Set a price
+      simulator.as("minter").setTokenPrice(TOKENID_1, 20n, minter);
+      expect(() => {
+        simulator.as("settler").setTokenPrice(TOKENID_1, 20n, settler);
+      }).toThrow();
+    });
+
+    it("Burning a token and checking status", () => {
+      simulator
+        .as("minter")
+        .mint(
+          Account_minter,
+          TOKENID_1,
+          Certificate_1,
+          Certificate_1_Price,
+          minter
+        );
+      expect(() =>
+        simulator.as("settler").burn(NON_EXISTENT_TOKEN, settler)
+      ).toThrow();
+      expect(() => {
+        simulator.as("settlerAdmin").burn(TOKENID_1, settlerAdmin);
+      }).toThrow();
+      expect(() => {
+        simulator.as("minter").burn(TOKENID_1, minter);
+      }).toThrow();
+      expect(() => {
+        simulator.as("matcher").burn(TOKENID_1, matcher);
+      }).toThrow();
+      expect(() => {
+        simulator.as("verifier").burn(TOKENID_1, verifier);
+      }).toThrow();
+      simulator.as("settler").burn(TOKENID_1, settler);
+
+      //checking status
+      expect(simulator.as("minter").balanceOf(Account_minter)).toBe(0n);
+      expect(() => {
+        expect(simulator.as("minter").balanceOf(Account_minter)).toBe(1n);
+      }).toThrow();
+      expect(() => {
+        expect(simulator.as("minter").ownerOf(TOKENID_1)).toStrictEqual(
+          Account_minter
+        );
+      }).toThrow();
+      expect(() => {
+        expect(
+          simulator.as("minter").tokenCertificate(TOKENID_1)
+        ).toStrictEqual(Certificate_1);
       }).toThrow();
     });
   });

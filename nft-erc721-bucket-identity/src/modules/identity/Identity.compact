@@ -154,7 +154,7 @@ module Identity {
   }
 
   /**
-    * @description: Unpause Access Control calls.
+    * @description: Unpause Identity calls.
     *
     * Requirements:
     * - Check if initialized
