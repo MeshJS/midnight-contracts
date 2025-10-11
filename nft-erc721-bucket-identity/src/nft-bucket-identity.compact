@@ -34,7 +34,7 @@ import "./modules/token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
 import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 
-export { ZswapCoinPublicKey, ContractAddress, Either };
+export { ZswapCoinPublicKey, ContractAddress, Either, CoinInfo };
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE FROM MODULES
@@ -57,6 +57,8 @@ export { NonFungibleToken__name,
          NonFungibleToken_Location,
          NonFungibleToken_Impact,
          NonFungibleToken_Source };
+
+export { BucketDEFI__zkBucketCounter, BucketDEFI_CONDITIONS, BucketDEFI_STATUS }
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE TOP LEVEL
@@ -457,6 +459,7 @@ export circuit unpauseToken(): [] {
 // CIRCUITS BUCKET DEFI
 ///////////////////////////////////////////////////////////////////////////////
 
-export circuit createBucket(): [] {  
-  BucketDEFI_createBucket();
+export circuit createBucket(conditions: BucketDEFI_CONDITIONS, coin: CoinInfo): Bytes<32> {
+  assertOwnVerification();
+  return BucketDEFI_createBucket(conditions, coin);
 }

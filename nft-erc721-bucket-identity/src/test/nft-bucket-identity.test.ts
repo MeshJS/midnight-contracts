@@ -3,6 +3,9 @@ import {
   NonFungibleToken_Source,
   NonFungibleToken_Impact,
   NonFungibleToken_Location,
+  BucketDEFI_CONDITIONS,
+  BucketDEFI_STATUS,
+  CoinInfo,
   Simulator
 } from "./simulators/nft-bucket-identity-simulator";
 import { describe, it, expect, beforeEach } from "vitest";
@@ -64,6 +67,20 @@ const TOKENID_2: bigint = BigInt(2);
 const TOKENID_3: bigint = BigInt(3);
 const NON_EXISTENT_TOKEN: bigint = BigInt(0xdead);
 
+//Bucket conditions
+const BUCKET1_CONDITIONS: BucketDEFI_CONDITIONS = {
+  source: NonFungibleToken_Source.Biomass,
+  unitPrice: 10n,
+  vintageLimit: 20n,
+  impact: NonFungibleToken_Impact.High,
+  location: NonFungibleToken_Location.RJ,
+  status: BucketDEFI_STATUS.OPEN,
+  accumulatedPrice: 0n,
+  pot: 100000000n,
+  startDate: 0n,
+  endDate: 0n
+}
+
 // Certificates
 const Certificate_1: NonFungibleToken_Certificate = {
   id: "Certificate_1",
@@ -73,6 +90,9 @@ const Certificate_1: NonFungibleToken_Certificate = {
   impact: NonFungibleToken_Impact.High,
   location: NonFungibleToken_Location.RJ
 };
+
+// Coins
+const coin1: CoinInfo = utils.coin(100000000);
 
 // Price
 const Certificate_1_Price = 10n;
@@ -421,12 +441,19 @@ describe("Smart contract Testing", () => {
   describe("Bucket DEFI module testing", () => {
     beforeEach(() => {});
 
+    it("properly initializes ledger state and private state", () => {
+      const initialLedgerState = simulator.as("adminMaster").getLedger();
+      expect(initialLedgerState.BucketDEFI__zkBucketCounter).toEqual(0n);
+      const initialPrivateState = simulator.as("adminMaster").getPrivateState();
+      expect(initialPrivateState).toEqual({
+        secretNonce: adminMaster_privateKey
+      });
+    });
+
     it("Creating a Bucket", () => {
-      simulator
-        .as("minter")
-        .createBucket(
-          minter
-        );
+      const ownerCommitment = simulator.as("minter").createBucket(BUCKET1_CONDITIONS, coin1, minter);
+      const initialLedgerState = simulator.as("adminMaster").getLedger();
+      expect(initialLedgerState.BucketDEFI__zkBucketCounter).toEqual(1n);
     });
   });
 });

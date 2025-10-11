@@ -24,7 +24,7 @@ module BucketDEFI {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
   import "./Pausable" prefix Pausable_;
-  import "../token-nft/NonFungibleToken" prefix NonFungibleToken_; 
+  import "../token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
   ///////////////////////////////////////////////////////////////////////////////
   // ENUMS
@@ -85,6 +85,17 @@ module BucketDEFI {
   export ledger _zkBucketDEFIConditions: Map<Bytes<32>, CONDITIONS>;
 
   /**
+  * @description: ZK Bucket Pot  
+  *
+  * @notice: none
+  *
+  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
+  * @type: {QualifiedCoinInfo} Pot - Amount of resources available for this bucket
+  * @type: {Map<ZK-Bucket-Identity, POT>} 
+  */
+  export ledger _zkBucketDEFIPot: Map<Bytes<32>, QualifiedCoinInfo>;
+
+  /**
   * @description: ZK Bucket representation after Settlement  
   *
   * @notice: none
@@ -125,7 +136,7 @@ module BucketDEFI {
   ///////////////////////////////////////////////////////////////////////////////
 
   // Secret nonce used for calculating the owner commitment
-  export witness wit_secretNonce(): Bytes<32>;   
+  export witness wit_secretNonce(): Bytes<32>;
 
   ///////////////////////////////////////////////////////////////////////////////
   // CIRCUITS
@@ -135,8 +146,12 @@ module BucketDEFI {
     Initializable_initialize();
   }
 
-  export circuit createBucket(): [] {
+  export circuit createBucket(conditions: CONDITIONS, coin: CoinInfo): Bytes<32> {
     Initializable_assertInitialized();
+
+    receive(disclose(coin));
+    assert(coin.value == conditions.pot, "requires to deposit the pot amount");
+    assert(coin.color == nativeToken(), "Invalid coin provided");
 
     const nonce = wit_secretNonce();
     const callerAsEither =
@@ -146,12 +161,20 @@ module BucketDEFI {
     const id = _computeOwnerId(callerAsEither, disclose(nonce));
     const ownerCommitment = _computeOwnerCommitment(id, _zkBucketCounter);
     _zkBucketToCounter.insert(ownerCommitment, _zkBucketCounter);
-    _zkBucketDEFI.insert(ownerCommitment, default<Map<Uint<128>, Either<ZswapCoinPublicKey, ContractAddress>>>);    
+    _zkBucketDEFIConditions.insert(ownerCommitment, disclose(conditions));
+    _zkBucketDEFIPot.insertCoin(
+      ownerCommitment, disclose(coin), right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+    _zkBucketDEFI.insert(
+      ownerCommitment, default<Map<Uint<128>, Either<ZswapCoinPublicKey, ContractAddress>>>);
     _zkBucketCounter += 1;
-    return [];
+    return ownerCommitment;
   }
 
-  export circuit addTokensToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>, owner: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+  export circuit addTokensToBucket(
+                   ownerCommitment: Bytes<32>,
+                   tokenId: Uint<128>,
+                   owner: Either<ZswapCoinPublicKey, ContractAddress>
+                   ): [] {
     Initializable_assertInitialized();
     _zkBucketDEFI.lookup(ownerCommitment).insert(tokenId, owner);
     return [];

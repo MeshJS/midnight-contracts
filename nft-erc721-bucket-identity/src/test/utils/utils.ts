@@ -1,4 +1,6 @@
 import type * as Compact from "../../managed/nft-bucket-identity/contract/index.cjs";
+import { encodeTokenType } from "@midnight-ntwrk/compact-runtime";
+import {nativeToken} from '@midnight-ntwrk/zswap';
 
 import {
   convert_bigint_to_Uint8Array,
@@ -75,4 +77,12 @@ export const createEitherTestContractAddress = (str: string) => ({
 
 export const zeroUint8Array = (length = 32) =>
   convert_bigint_to_Uint8Array(length, 0n);
+
+export const coin = (value: number): Compact.CoinInfo => {
+  return {
+    nonce: randomBytes(32),
+    color: encodeTokenType(nativeToken()),
+    value: BigInt(value),
+  };
+}
 

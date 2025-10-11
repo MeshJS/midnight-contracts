@@ -15,7 +15,8 @@ import {
   ContractAddress as ContractAddress_,
   ZswapCoinPublicKey as ZswapCoinPublicKey_,
   Either,
-  type NonFungibleToken_Certificate, NonFungibleToken_Source, NonFungibleToken_Impact, NonFungibleToken_Location
+  CoinInfo,
+  type NonFungibleToken_Certificate, NonFungibleToken_Source, NonFungibleToken_Impact, NonFungibleToken_Location, BucketDEFI_CONDITIONS, BucketDEFI_STATUS
 } from "../../managed/nft-bucket-identity/contract/index.cjs";
 import {
   type PrivateState,
@@ -30,7 +31,7 @@ import {
 } from "@midnight-ntwrk/onchain-runtime";
 import { adminMaster } from "../nft-bucket-identity.test.js";
 
-export { type NonFungibleToken_Certificate, NonFungibleToken_Source, NonFungibleToken_Impact, NonFungibleToken_Location };
+export { type NonFungibleToken_Certificate, NonFungibleToken_Source, NonFungibleToken_Impact, NonFungibleToken_Location, type BucketDEFI_CONDITIONS, BucketDEFI_STATUS, type CoinInfo };
 
 const config = new LogicTestingConfig();
 export const logger = await createLogger(config.logDir);
@@ -373,14 +374,15 @@ export class Simulator {
     return circuitResults.result;
   }
 
-  public createBucket(caller?: CoinPublicKey): Ledger {
+  public createBucket(conditions: BucketDEFI_CONDITIONS, coin: CoinInfo, caller?: CoinPublicKey): Uint8Array {
     // Update the current context to be the result of executing the circuit.
     const circuitResults = this.contract.impureCircuits.createBucket({
       ...this.circuitContext,
       currentZswapLocalState: caller
         ? emptyZswapLocalState(caller)
         : this.circuitContext.currentZswapLocalState
-    });
-    return this.updateStateAndGetLedger(circuitResults);
+    }, conditions, coin);
+    this.updateStateAndGetLedger(circuitResults);
+    return circuitResults.result;
   }
 }
