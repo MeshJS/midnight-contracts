@@ -359,45 +359,48 @@ module NonFungibleToken {
     _transferFrom(from, to, tokenId);
   }
 
- /**
-   * @description Transfers `tokenId` from `from` to `to`. As opposed to {transferFrom}, this imposes no restrictions on ownPublicKey().
-   *
-   * @notice Transfers to contract addresses are currently disallowed until contract-to-contract interactions are supported in Compact. This restriction prevents assets from being inadvertently
-   *
-   * Requirements:
-   * - The contract is initialized.
-   * - Check if not paused
-   * - `tokenId` token must be owned by `from`.
-   *
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The source account of the token transfer
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
-   * @param {Uint<128>} tokenId - The token to transfer
-   * @return {[]} - Empty tuple.
-   */
-   export circuit transfer(
-                   from: Either<ZswapCoinPublicKey, ContractAddress>,
-                   to: Either<ZswapCoinPublicKey, ContractAddress>,
-                   tokenId: Uint<128>
-                   ): [] {
+  /**
+    * @description Transfers `tokenId` from `from` to `to`. As opposed to {transferFrom}, this imposes no restrictions on ownPublicKey().
+    *
+    * @notice Transfers to contract addresses are currently disallowed until contract-to-contract interactions are supported in Compact. This restriction prevents assets from being inadvertently
+    *
+    * Requirements:
+    * - The contract is initialized.
+    * - Check if not paused
+    * - `tokenId` token must be owned by `from`.
+    *
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} from - The source account of the token transfer
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
+    * @param {Uint<128>} tokenId - The token to transfer
+    * @return {[]} - Empty tuple.
+    */
+  export circuit transfer(from: Either<ZswapCoinPublicKey, ContractAddress>,
+                          to: Either<ZswapCoinPublicKey, ContractAddress>,
+                          tokenId: Uint<128>
+                          ): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
     _transfer(from, to, tokenId);
   }
 
-   /**
-   * @description Mints `tokenId` and transfers it to `to`.
-   *
-   * Requirements:
-   * - The contract is initialized.
-   * - Check if not paused
-   * - Increment by one the counter value
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The account receiving `tokenId`
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
-   * @param {Uint<128>} tokenId - The token identifier
-   * @param {Certificate} tokenCertificate - The token metadata
-   * @return {[]} - Empty tuple.
-   */
-  export circuit mint(to: Either<ZswapCoinPublicKey, ContractAddress>, tokenId: Uint<128>, tokenCertificate: Certificate, price: Uint<64>): [] {
+  /**
+  * @description Mints `tokenId` and transfers it to `to`.
+  *
+  * Requirements:
+  * - The contract is initialized.
+  * - Check if not paused
+  * - Increment by one the counter value
+  * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The account receiving `tokenId`
+  * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
+  * @param {Uint<128>} tokenId - The token identifier
+  * @param {Certificate} tokenCertificate - The token metadata
+  * @return {[]} - Empty tuple.
+  */
+  export circuit mint(to: Either<ZswapCoinPublicKey, ContractAddress>,
+                      tokenId: Uint<128>,
+                      tokenCertificate: Certificate,
+                      price: Uint<64>
+                      ): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
     _certificatesCreatedCounter.increment(1);
@@ -405,16 +408,16 @@ module NonFungibleToken {
     _setTokenPrice(tokenId, price);
   }
 
-   /**
-   * @description Destroys `tokenId`. The approval is cleared when the token is burned. This circuit does not check if the sender is authorized to operate on the token.
-   *  
-   * Requirements:  
-   * - The contract is initialized.
-   * - Check if not paused
-   * - `tokenId` must exist.
-   * @param {Uint<128>} tokenId - The token to burn
-   * @return {[]} - Empty tuple.
-   */
+  /**
+  * @description Destroys `tokenId`. The approval is cleared when the token is burned. This circuit does not check if the sender is authorized to operate on the token.
+  *  
+  * Requirements:  
+  * - The contract is initialized.
+  * - Check if not paused
+  * - `tokenId` must exist.
+  * @param {Uint<128>} tokenId - The token to burn
+  * @return {[]} - Empty tuple.
+  */
   export circuit burn(tokenId: Uint<128>): [] {
     Initializable_assertInitialized();
     Pausable_assertNotPaused();
@@ -515,7 +518,7 @@ module NonFungibleToken {
    * @param {Uint<128>} tokenId - The token to transfer
    * @return {[]} - Empty tuple.
    */
-    export circuit _transfer(
+  export circuit _transfer(
                    from: Either<ZswapCoinPublicKey, ContractAddress>,
                    to: Either<ZswapCoinPublicKey, ContractAddress>,
                    tokenId: Uint<128>
@@ -571,20 +574,23 @@ module NonFungibleToken {
     return from;
   }
 
- /**
-   * @description Mints `tokenId` and transfers it to `to`. It does NOT check if the recipient is a ContractAddress.
-   *
-   * @notice: Transfers to contract addresses are considered unsafe because contract-to-contract calls are not currently supported. Tokens sent to a contract address may become irretrievable.
-   *
-   * Requirements:
-   * - `to` is not the zero address.
-   * - update balance and owner of the token
-   * - confirm that the token did not have a previous owner
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The account receiving `tokenId`
-   * @param {Uint<128>} tokenId - The token to transfer
-   * @return {[]} - Empty tuple.
-   */
-  export circuit _mint(to: Either<ZswapCoinPublicKey, ContractAddress>, tokenId: Uint<128>, tokenCertificate: Certificate): [] {
+  /**
+    * @description Mints `tokenId` and transfers it to `to`. It does NOT check if the recipient is a ContractAddress.
+    *
+    * @notice: Transfers to contract addresses are considered unsafe because contract-to-contract calls are not currently supported. Tokens sent to a contract address may become irretrievable.
+    *
+    * Requirements:
+    * - `to` is not the zero address.
+    * - update balance and owner of the token
+    * - confirm that the token did not have a previous owner
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The account receiving `tokenId`
+    * @param {Uint<128>} tokenId - The token to transfer
+    * @return {[]} - Empty tuple.
+    */
+  export circuit _mint(to: Either<ZswapCoinPublicKey, ContractAddress>,
+                       tokenId: Uint<128>,
+                       tokenCertificate: Certificate
+                       ): [] {
     assert(!Utils_isKeyOrAddressZero(to), "NonFungibleToken: Invalid Receiver");
 
     const previousOwner = _update(to, tokenId, burnAddress());
@@ -604,7 +610,7 @@ module NonFungibleToken {
    * @param {Uint<128>} tokenId - The token to burn
    * @return {[]} - Empty tuple.
    */
-  export circuit _burn(tokenId: Uint<128>): [] {    
+  export circuit _burn(tokenId: Uint<128>): [] {
     const previousOwner = _update(burnAddress(), tokenId, burnAddress());
     assert(!Utils_isKeyOrAddressZero(previousOwner), "NonFungibleToken: Invalid Sender");
   }
@@ -678,22 +684,22 @@ module NonFungibleToken {
     return owner;
   }
 
-   /**
-    * @description Returns the owner of the `tokenId`. Does NOT revert if token doesn't exist
-    *
-    * Requirements:
-    * - Check if member and return value or burn address
-    *
-    * @param {Uint<128>} tokenId - The target token of the owner query
-    * @return {Either<ZswapCoinPublicKey, ContractAddress>} - The owner of the token
-    */
+  /**
+   * @description Returns the owner of the `tokenId`. Does NOT revert if token doesn't exist
+   *
+   * Requirements:
+   * - Check if member and return value or burn address
+   *
+   * @param {Uint<128>} tokenId - The target token of the owner query
+   * @return {Either<ZswapCoinPublicKey, ContractAddress>} - The owner of the token
+   */
   export circuit _ownerOf(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
     if (!_owners.member(disclose(tokenId))) {
       return burnAddress();
     }
 
     return _owners.lookup(disclose(tokenId));
-  } 
+  }
 
   /**
   * @description Sets the the metadata as `Certificate` for the given `tokenId`.
@@ -772,19 +778,19 @@ module NonFungibleToken {
              _getApproved(tokenId) == disclose(spender)));
   }
 
- /**
-   * @description Checks if `spender` can operate on `tokenId`, assuming the provided `owner` is the actual owner.
-   *
-   * @notice: This function assumes that `owner` is the actual owner of `tokenId` and does not verify this
-   * assumption.
-   *
-   * Requirements:
-   * - `spender` has approval from `owner` for `tokenId` OR `spender` has approval to manage all of `owner`'s assets.
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} owner - Owner of the token
-   * @param {Either<ZswapCoinPublicKey, ContractAddress>} spender - Account operating on `tokenId`
-   * @param {Uint<128>} tokenId - The token to spend
-   * @return {[]} - Empty tuple.
-   */
+  /**
+    * @description Checks if `spender` can operate on `tokenId`, assuming the provided `owner` is the actual owner.
+    *
+    * @notice: This function assumes that `owner` is the actual owner of `tokenId` and does not verify this
+    * assumption.
+    *
+    * Requirements:
+    * - `spender` has approval from `owner` for `tokenId` OR `spender` has approval to manage all of `owner`'s assets.
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} owner - Owner of the token
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} spender - Account operating on `tokenId`
+    * @param {Uint<128>} tokenId - The token to spend
+    * @return {[]} - Empty tuple.
+    */
   export circuit _checkAuthorized(
                    owner: Either<ZswapCoinPublicKey, ContractAddress>,
                    spender: Either<ZswapCoinPublicKey, ContractAddress>,
@@ -796,14 +802,14 @@ module NonFungibleToken {
     }
   }
 
-   /**
-    * @description Returns the approved address for `tokenId`. Returns the zero address if `tokenId` is not minted.
-    *
-    * Requirements:
-    * - 
-    * @param {Uint<128>} tokenId - The token to query
-    * @return {Either<ZswapCoinPublicKey, ContractAddress>} - An account approved to spend `tokenId`
-    */
+  /**
+   * @description Returns the approved address for `tokenId`. Returns the zero address if `tokenId` is not minted.
+   *
+   * Requirements:
+   * - 
+   * @param {Uint<128>} tokenId - The token to query
+   * @return {Either<ZswapCoinPublicKey, ContractAddress>} - An account approved to spend `tokenId`
+   */
   export circuit _getApproved(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
     if (!_tokenApprovals.member(disclose(tokenId))) {
       return burnAddress();

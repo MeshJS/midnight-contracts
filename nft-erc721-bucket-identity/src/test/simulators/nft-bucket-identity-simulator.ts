@@ -51,7 +51,7 @@ export class Simulator {
       currentZswapLocalState
     } = this.contract.initialState(
       constructorContext(
-        { privateValue: privateState.privateValue },
+        { secretNonce: privateState.secretNonce },
         adminMaster
       ),
       name,
@@ -71,15 +71,15 @@ export class Simulator {
   }
 
   static deployContract(
-    secretKey: number,
+    secretNonce: Uint8Array,
     name: string,
     symbol: string
   ): Simulator {
-    return new Simulator(createPrivateState(secretKey), name, symbol);
+    return new Simulator(createPrivateState(secretNonce), name, symbol);
   }
 
-  createPrivateState(pName: string, secretKey: number): void {
-    this.userPrivateStates[pName] = createPrivateState(secretKey);
+  createPrivateState(pName: string, secretNonce: Uint8Array): void {
+    this.userPrivateStates[pName] = createPrivateState(secretNonce);
   }
 
   private buildTurnContext(
@@ -371,5 +371,16 @@ export class Simulator {
         : this.circuitContext.currentZswapLocalState
     }, tokenId);
     return circuitResults.result;
+  }
+
+  public createBucket(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.createBucket({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
   }
 }

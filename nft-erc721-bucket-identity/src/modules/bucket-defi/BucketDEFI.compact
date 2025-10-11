@@ -23,7 +23,8 @@ pragma language_version >= 0.17.0;
 module BucketDEFI {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
-  import "../token-nft/NonFungibleToken" prefix NonFungibleToken_;
+  import "./Pausable" prefix Pausable_;
+  import "../token-nft/NonFungibleToken" prefix NonFungibleToken_; 
 
   ///////////////////////////////////////////////////////////////////////////////
   // ENUMS
@@ -65,12 +66,12 @@ module BucketDEFI {
   * @notice: none
   *
   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-  * @type: {Uint<64>} TokenID - Identification of the certificate
+  * @type: {Uint<128>} TokenID - Identification of the certificate
   * @type: {Either<ZswapCoinPublicKey, ContractAddress>} Owner - Original owner of the certificate
   * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Owner>>} 
   */
   export ledger _zkBucketDEFI: Map<Bytes<32>,
-                                   Map<Uint<64>, Either<ZswapCoinPublicKey, ContractAddress>>>;
+                                   Map<Uint<128>, Either<ZswapCoinPublicKey, ContractAddress>>>;
 
   /**
   * @description: ZK Bucket Conditions  
@@ -89,10 +90,10 @@ module BucketDEFI {
   * @notice: none
   *
   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-  * @type: {Uint<64>} TokenID - Identification of the certificate  
+  * @type: {Uint<128>} TokenID - Identification of the certificate  
   * @type: {Map<ZK-Bucket-Identity, Set<TokenID>>} 
   */
-  export ledger _zkBucketSettled: Map<Bytes<32>, Set<Uint<64>>>;
+  export ledger _zkBucketSettled: Map<Bytes<32>, Set<Uint<128>>>;
 
   /**
   * @description: Bucket Commitment tracked with counter
@@ -103,7 +104,7 @@ module BucketDEFI {
   * @type: {Uint<64>} Counter - Bucket counter used when calculated the hash
   * @type: {Map<ZK-Bucket-Identity, Counter>} 
   */
-  export ledger _zkBucketToPublicRandomBytes: Map<Bytes<32>, Bytes<32>>;
+  export ledger _zkBucketToCounter: Map<Bytes<32>, Uint<64>>;
 
   // Counter for calculating the bucket commitment
   export ledger _zkBucketCounter: Counter;
@@ -124,10 +125,7 @@ module BucketDEFI {
   ///////////////////////////////////////////////////////////////////////////////
 
   // Secret nonce used for calculating the owner commitment
-  export witness wit_secretNonce(): Bytes<32>;
-
-   // Random number generated offchain
-  export witness wit_publicRandomBytes(): Bytes<32>;  ////the random value will this generated offchain plus the value of counter as a security but all ofchain so we dont run into concusrrency issue due to the counter. 
+  export witness wit_secretNonce(): Bytes<32>;   
 
   ///////////////////////////////////////////////////////////////////////////////
   // CIRCUITS
@@ -137,55 +135,38 @@ module BucketDEFI {
     Initializable_initialize();
   }
 
-  // export circuit owner(): Bytes<32> {
-  //   Initializable_assertInitialized();
-  //   return _ownerCommitment;
-  // }
+  export circuit createBucket(): [] {
+    Initializable_assertInitialized();
 
-  // export circuit transferOwnership(newOwnerId: Bytes<32>): [] {
-  //   Initializable_assertInitialized();
+    const nonce = wit_secretNonce();
+    const callerAsEither =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    const id = _computeOwnerId(callerAsEither, disclose(nonce));
+    const ownerCommitment = _computeOwnerCommitment(id, _zkBucketCounter);
+    _zkBucketToCounter.insert(ownerCommitment, _zkBucketCounter);
+    _zkBucketDEFI.insert(ownerCommitment, default<Map<Uint<128>, Either<ZswapCoinPublicKey, ContractAddress>>>);    
+    _zkBucketCounter += 1;
+    return [];
+  }
 
-  //   assertOnlyOwner();
-  //   assert(newOwnerId != default<Bytes<32>>, "BucketDEFI: invalid id");
-  //   _transferOwnership(newOwnerId);
-  // }
+  export circuit addTokensToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>, owner: Either<ZswapCoinPublicKey, ContractAddress>): [] {
+    Initializable_assertInitialized();
+    _zkBucketDEFI.lookup(ownerCommitment).insert(tokenId, owner);
+    return [];
+  }
 
-  // export circuit renounceOwnership(): [] {
-  //   Initializable_assertInitialized();
+  export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>): Bytes<32> {
+    Initializable_assertInitialized();
+    return persistentHash<Vector<3, Bytes<32>>>(
+             [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
+  }
 
-  //   assertOnlyOwner();
-  //   _ownerCommitment.resetToDefault();
-  // }
+  export pure circuit _computeOwnerId(
+                        pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
+    assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
 
-  // export circuit assertOnlyOwner(): [] {
-  //   Initializable_assertInitialized();
-
-  //   const nonce = wit_secretNonce();
-  //   const callerAsEither =
-  //                 Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
-  //                                                               left: ownPublicKey(),
-  //                                                               right: ContractAddress { bytes: pad(32, "") } };
-  //   const id = _computeOwnerId(callerAsEither, nonce);
-  //   assert(_ownerCommitment == _computeOwnerCommitment(id, _counter), "BucketDEFI: caller is not the owner");
-  // }
-
-  // export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>,): Bytes<32> {
-  //   Initializable_assertInitialized();
-  //   return persistentHash<Vector<3, Bytes<32>>>(
-  //            [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
-  // }
-
-  // export pure circuit _computeOwnerId(
-  //                       pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
-  //   assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
-
-  //   return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
-  // }
-
-  // export circuit _transferOwnership(newOwnerId: Bytes<32>): [] {
-  //   Initializable_assertInitialized();
-
-  //   _counter.increment(1);
-  //   _ownerCommitment = _computeOwnerCommitment(disclose(newOwnerId), _counter);
-  // }
+    return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
+  }
 }

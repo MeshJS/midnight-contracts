@@ -14,15 +14,15 @@ import {
 } from "@midnight-ntwrk/compact-runtime";
 
 // Users private information
-const adminMaster_privateKey = 0;
-const minterAdmin_privateKey = 1;
-const minter_privateKey = 2;
-const matcherAdmin_privateKey = 3;
-const matcher_privateKey = 4;
-const settlerAdmin_privateKey = 5;
-const settler_privateKey = 6;
-const verifierAdmin_privateKey = 7;
-const verifier_privateKey = 8;
+const adminMaster_privateKey = randomBytes(32);
+const minterAdmin_privateKey = randomBytes(32);
+const minter_privateKey = randomBytes(32);
+const matcherAdmin_privateKey = randomBytes(32);
+const matcher_privateKey = randomBytes(32);
+const settlerAdmin_privateKey = randomBytes(32);
+const settler_privateKey = randomBytes(32);
+const verifierAdmin_privateKey = randomBytes(32);
+const verifier_privateKey = randomBytes(32);
 
 // Callers
 export const adminMaster = utils.toHexPadded("adminMaster");
@@ -143,7 +143,7 @@ describe("Smart contract Testing", () => {
       expect(initialLedgerState.NonFungibleToken__symbol).toEqual("SYMBOL");
       const initialPrivateState = simulator.as("adminMaster").getPrivateState();
       expect(initialPrivateState).toEqual({
-        privateValue: adminMaster_privateKey
+        secretNonce: adminMaster_privateKey
       });
     });
 
@@ -415,6 +415,18 @@ describe("Smart contract Testing", () => {
           simulator.as("minter").tokenCertificate(TOKENID_1)
         ).toStrictEqual(Certificate_1);
       }).toThrow();
+    });
+  });
+
+  describe("Bucket DEFI module testing", () => {
+    beforeEach(() => {});
+
+    it("Creating a Bucket", () => {
+      simulator
+        .as("minter")
+        .createBucket(
+          minter
+        );
     });
   });
 });
