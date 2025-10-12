@@ -326,7 +326,7 @@ export circuit balanceOf(owner: Either<ZswapCoinPublicKey, ContractAddress>): Ui
 }
 
 /**
-* @description Returns the owner of the `tokenId` token.
+* @description Returns the owner of the `tokenId` token. If not revert.
 *
 * @circuitInfo k=xx, rows=xx
 *
@@ -477,14 +477,37 @@ export circuit createBucket(conditions: BucketDEFI_CONDITIONS, coin: CoinInfo): 
   return BucketDEFI_createBucket(conditions, coin);
 }
 
+/**
+* @description: Add a certificate to the bucket if it complies with the conditions
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: The matcher can add a certificate to the bucket or the owner of the token.
+*
+* @requirements:
+* - Check that the caller is either a matcher or the owner of the token.
+* - Check if the bucket exists, if not revert. Get Bucket Conditions.
+* - Check if the token exists, if not revert. Get Token Specs and Token Price.
+* - Check if the token complies with the bucket conditions.
+* - Wrapper call
+* @return {[]} empty tuple
+*/
 export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>): [] {
+  // Check if the caller is either a matcher or the owner of the token.
+  const owner = NonFungibleToken__ownerOf(tokenId);
+  const isOwner = (owner.left == ownPublicKey());
+  if (!isOwner) assertOnlyRole(4 as Field as Bytes<32>);
+
+  // Check if the bucket exists, if not revert. Get Bucket Conditions.
   assert(BucketDEFI__zkBucketDEFIConditions.member(disclose(ownerCommitment)), "Bucket not found");
   const bucketConditions = BucketDEFI__zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
 
+  // Check if the token exists, if not revert. Get Token Specs and Token Price.
   assert(NonFungibleToken__tokenToCertificate.member(disclose(tokenId)), "Token not found");
   const tokenSpecs = NonFungibleToken__tokenToCertificate.lookup(disclose(tokenId));
   const tokenPrice = NonFungibleToken__tokenToPrice.lookup(disclose(tokenId));
 
+  // Check if the token complies with the bucket conditions.
   const condition1 = bucketConditions.source == tokenSpecs.source;
   const condition2 = (bucketConditions.unitPrice * tokenSpecs.generation) >= tokenPrice;
   const condition3 = bucketConditions.vintageLimit >= tokenSpecs.vintage;
@@ -492,9 +515,18 @@ export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<
   const condition5 = bucketConditions.location == tokenSpecs.location;
   const condition6 = bucketConditions.status == BucketDEFI_STATUS.OPEN;
   const condition7 = (bucketConditions.accumulatedPrice + tokenPrice) <= bucketConditions.pot;
-  // const condition8 = bucketConditions.startDate <= tokenSpecs.vintage;
-  // const condition9 = bucketConditions.endDate >= tokenSpecs.vintage;
-  
-  assert(condition1 && condition2 && condition3 && condition4 && condition5 && condition6 && condition7 , "Token specs don't meet bucket conditions");
+  const condition8 = blockTimeGte(bucketConditions.startDate);
+  const condition9 = blockTimeLte(bucketConditions.endDate);
+  assert(condition1 &&
+         condition2 &&
+         condition3 &&
+         condition4 &&
+         condition5 &&
+         condition6 &&
+         condition7 &&
+         condition8 &&
+         condition9, "Token specs don't meet bucket conditions");
+
+  // Wrapper call
   return BucketDEFI_addCertificateToBucket(ownerCommitment, tokenId);
 }

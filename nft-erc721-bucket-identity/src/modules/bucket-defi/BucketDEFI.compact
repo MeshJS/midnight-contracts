@@ -220,7 +220,7 @@ module BucketDEFI {
   }
 
   /**
-     * @description: Add a certificate to the bucket if it complies with the conditions.
+     * @description: Add a certificate to the bucket
      *
      * @notice: Still need to implement the logic to check if the certificate complies with the conditions. Since this involves analizing different module states, this will be done at the top-level contract.
      *

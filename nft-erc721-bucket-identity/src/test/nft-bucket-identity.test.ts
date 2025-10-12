@@ -115,6 +115,7 @@ const Certificate_2: NonFungibleToken_Certificate = {
 
 // Coins
 const coin1: CoinInfo = utils.coin(100000000);
+const coin2: CoinInfo = utils.coin(100000000);
 
 // Price
 const Certificate_1_Price = 100000000n;
@@ -500,17 +501,14 @@ describe("Smart contract Testing", () => {
         .createBucket(BUCKET1_CONDITIONS, coin1, minter);
       simulator
         .as("minter")
-        .addCertificateToBucket(ownerCommitment, TOKENID_1, minter);
+        .addCertificateToBucket(ownerCommitment, TOKENID_1, minter);      
 
-      // const initialLedgerState = simulator.as("adminMaster").getLedger();
-      // expect(initialLedgerState.BucketDEFI__zkBucketCounter).toEqual(1n);
-
-      // const ownerCommitment2 = simulator
-      //   .as("minter")
-      //   .createBucket(BUCKET2_CONDITIONS, coin1, minter);
-      // simulator
-      //   .as("minter")
-      //   .addCertificateToBucket(ownerCommitment2, TOKENID_2, minter);
+      const ownerCommitment2 = simulator
+        .as("minter")
+        .createBucket(BUCKET2_CONDITIONS, coin2, minter);
+      simulator
+        .as("minter")
+        .addCertificateToBucket(ownerCommitment2, TOKENID_2, minter);
     });
   });
 });
