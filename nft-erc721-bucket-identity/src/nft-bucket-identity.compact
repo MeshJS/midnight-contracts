@@ -9,7 +9,8 @@ pragma language_version >= 0.17;
 * @notice: Best Practices
 * - Modules are being created as in React, self-contained and with its own logic (logic-module + Initializable-module + Pausable-module).
 * - All the initializing circuits are called within the constructor. Plus some intial settings.
-* - Modules that contain State and initialization should not call other modules circuits. Only allowed at the top-level contract to avoid state errors due to initialization. Calling Structs and enum between modules it is permitted.
+* - You can export circuits and types from one module and import them into another scope (including the top-level contract). However, the docs don’t show—or suggest—direct access to a module’s ledger state from another module. In practice, inter-module ledger state should flow through circuits (though I couldn’t get that working reliably). Given that, we prefer to read/write state only at the top level when a circuits depends on different modules states. 
+* - Modules types and utilites pure functions are used between modules.
 * - Utils modules only contain pure circuits.
 *
 * @notice Missing Features and Improvements:
@@ -34,8 +35,6 @@ import "./modules/token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
 import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
 
-export { ZswapCoinPublicKey, ContractAddress, Either, CoinInfo };
-
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE FROM MODULES
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,6 +58,8 @@ export { NonFungibleToken__name,
          NonFungibleToken_Source };
 
 export { BucketDEFI__zkBucketCounter, BucketDEFI_CONDITIONS, BucketDEFI_STATUS }
+
+export { ZswapCoinPublicKey, ContractAddress, Either, CoinInfo };
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE TOP LEVEL
@@ -459,7 +460,41 @@ export circuit unpauseToken(): [] {
 // CIRCUITS BUCKET DEFI
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+* @description: Create Buckets.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: The creator should be within the whitelist (Identity module).
+*
+* @requirements:
+* - The caller must be part of the whitelist (Identity module).
+* - Wrapper call
+* @return {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+*/
 export circuit createBucket(conditions: BucketDEFI_CONDITIONS, coin: CoinInfo): Bytes<32> {
   assertOwnVerification();
   return BucketDEFI_createBucket(conditions, coin);
+}
+
+export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>): [] {
+  assert(BucketDEFI__zkBucketDEFIConditions.member(disclose(ownerCommitment)), "Bucket not found");
+  const bucketConditions = BucketDEFI__zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+
+  assert(NonFungibleToken__tokenToCertificate.member(disclose(tokenId)), "Token not found");
+  const tokenSpecs = NonFungibleToken__tokenToCertificate.lookup(disclose(tokenId));
+  const tokenPrice = NonFungibleToken__tokenToPrice.lookup(disclose(tokenId));
+
+  const condition1 = bucketConditions.source == tokenSpecs.source;
+  const condition2 = (bucketConditions.unitPrice * tokenSpecs.generation) >= tokenPrice;
+  const condition3 = bucketConditions.vintageLimit >= tokenSpecs.vintage;
+  const condition4 = bucketConditions.impact == tokenSpecs.impact;
+  const condition5 = bucketConditions.location == tokenSpecs.location;
+  const condition6 = bucketConditions.status == BucketDEFI_STATUS.OPEN;
+  const condition7 = (bucketConditions.accumulatedPrice + tokenPrice) <= bucketConditions.pot;
+  // const condition8 = bucketConditions.startDate <= tokenSpecs.vintage;
+  // const condition9 = bucketConditions.endDate >= tokenSpecs.vintage;
+  
+  assert(condition1 && condition2 && condition3 && condition4 && condition5 && condition6 && condition7 , "Token specs don't meet bucket conditions");
+  return BucketDEFI_addCertificateToBucket(ownerCommitment, tokenId);
 }

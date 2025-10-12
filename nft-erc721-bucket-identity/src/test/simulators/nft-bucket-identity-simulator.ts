@@ -385,4 +385,15 @@ export class Simulator {
     this.updateStateAndGetLedger(circuitResults);
     return circuitResults.result;
   }
+
+    public addCertificateToBucket(ownerCommitment: Uint8Array, tokenId: bigint, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.addCertificateToBucket({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    }, ownerCommitment, tokenId);
+    return this.updateStateAndGetLedger(circuitResults);    
+  }
 }

@@ -75,9 +75,20 @@ export const createEitherTestContractAddress = (str: string) => ({
   right: encodeToAddress(str)
 });
 
+/**
+ * @description Generates an empty Uint8Array of a specific length.
+ * @param str String to hexify and encode.
+ * @returns Empty Uint8Array of a specific length.
+ */
 export const zeroUint8Array = (length = 32) =>
   convert_bigint_to_Uint8Array(length, 0n);
 
+
+/**
+ * @description Generates a CoinInfo object for testing purposes.
+ * @param value Value of the coin.
+ * @returns CoinInfo object.
+ */
 export const coin = (value: number): Compact.CoinInfo => {
   return {
     nonce: randomBytes(32),

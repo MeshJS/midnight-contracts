@@ -67,11 +67,9 @@ module BucketDEFI {
   *
   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
   * @type: {Uint<128>} TokenID - Identification of the certificate
-  * @type: {Either<ZswapCoinPublicKey, ContractAddress>} Owner - Original owner of the certificate
-  * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Owner>>} 
+  * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Set<Owner>>>} 
   */
-  export ledger _zkBucketDEFI: Map<Bytes<32>,
-                                   Map<Uint<128>, Either<ZswapCoinPublicKey, ContractAddress>>>;
+  export ledger _zkBucketDEFI: Map<Bytes<32>, Set<Uint<128>>>;
 
   /**
   * @description: ZK Bucket Conditions  
@@ -131,6 +129,17 @@ module BucketDEFI {
   */
   export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
 
+  /**
+  * @description: Track of certificates added to a bucket so they can be placed in multiple buckets
+  *
+  * @notice: none
+  *
+  * @type: {Uint<128>} TokenID - Identification of the certificate
+  * @type: {Boolean} isLocked - The certificate is locked in a bucket 
+  * @type: {Map<TokenID, isLocked>} 
+  */
+  export ledger _tokenLocked: Map<Uint<128>, Boolean>;
+
   ///////////////////////////////////////////////////////////////////////////////
   // WITNESS
   ///////////////////////////////////////////////////////////////////////////////
@@ -142,17 +151,46 @@ module BucketDEFI {
   // CIRCUITS
   ///////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * @description: Initializes the contract.
+   *
+   * @notice: This MUST be called in the implementing contract's constructor. Failure to do so can lead to an irreparable contract.
+   *
+   * @requirements:
+   * - Contract is initialized. 
+   * @return {[]} - Empty tuple.
+   */
   export circuit initialize(): [] {
     Initializable_initialize();
   }
 
+  /**
+   * @description: Create a new bucket.
+   *
+   * @notice: None.
+   *
+   * @requirements:
+   * - Contract is initialized. 
+   * - The coin is received from ZSwap and check conditions
+   * - Read the witness secret nonce to calculate the owner commitment
+   * - Insert the owner commitment with the counter
+   * - Insert the owner commitment with the conditions
+   * - Insert the owner commitment with the pot
+   * - Create the bucket with the new owner commitment
+   * - Increment the counter
+   * @param {CONDITIONS} conditions - The conditions of the bucket.
+   * @param {CoinInfo} coin - The coin the user has to deposit into the contract
+   * @return {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+   */
   export circuit createBucket(conditions: CONDITIONS, coin: CoinInfo): Bytes<32> {
     Initializable_assertInitialized();
 
+    // The coin is received from ZSwap and check conditions
     receive(disclose(coin));
     assert(coin.value == conditions.pot, "requires to deposit the pot amount");
     assert(coin.color == nativeToken(), "Invalid coin provided");
 
+    // Read the witness secret nonce to calculate the owner commitment
     const nonce = wit_secretNonce();
     const callerAsEither =
                   Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
@@ -160,36 +198,104 @@ module BucketDEFI {
                                                                 right: ContractAddress { bytes: pad(32, "") } };
     const id = _computeOwnerId(callerAsEither, disclose(nonce));
     const ownerCommitment = _computeOwnerCommitment(id, _zkBucketCounter);
+
+    // Insert the owner commitment with the counter
     _zkBucketToCounter.insert(ownerCommitment, _zkBucketCounter);
+
+    // Insert the owner commitment with the conditions
     _zkBucketDEFIConditions.insert(ownerCommitment, disclose(conditions));
+
+    // Insert the owner commitment with the pot
     _zkBucketDEFIPot.insertCoin(
       ownerCommitment, disclose(coin), right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
-    _zkBucketDEFI.insert(
-      ownerCommitment, default<Map<Uint<128>, Either<ZswapCoinPublicKey, ContractAddress>>>);
+
+    // Create the bucket with the new owner commitment
+    _zkBucketDEFI.insert(ownerCommitment, default<Set<Uint<128>>>);
+
+    // Increment the counter
     _zkBucketCounter += 1;
+
+    // Return the owner commitment
     return ownerCommitment;
   }
 
-  export circuit addTokensToBucket(
-                   ownerCommitment: Bytes<32>,
-                   tokenId: Uint<128>,
-                   owner: Either<ZswapCoinPublicKey, ContractAddress>
-                   ): [] {
+  /**
+     * @description: Add a certificate to the bucket if it complies with the conditions.
+     *
+     * @notice: Still need to implement the logic to check if the certificate complies with the conditions. Since this involves analizing different module states, this will be done at the top-level contract.
+     *
+     * @requirements:
+     * - Contract is initialized. 
+     * - confirmed the certificate is not locked
+     * - Insert a certificate into a bucket
+     * - Locked the certificate
+     * @param {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+     * @param {Uint<128>} tokenId - The token ID of the certificate
+     * @return {[]} empty tuple
+     */
+  export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>): [] {
     Initializable_assertInitialized();
-    _zkBucketDEFI.lookup(ownerCommitment).insert(tokenId, owner);
+
+    // Confirm the certificate is not locked
+    assert(!_isTokenLocked(tokenId), "Token is locked");
+
+    // Insert a certificate into a bucket
+    _zkBucketDEFI.lookup(disclose(ownerCommitment)).insert(disclose(tokenId));
+
+    // Lock the certificate
+    _tokenLocked.insert(disclose(tokenId), true);
     return [];
   }
 
+  /**
+     * @description: Creates the owner commitment based on the ownerID and the counter
+     *
+     * @notice: None.
+     *
+     * @requirements:
+     * - Hash of id, counter and spacer
+     * @param {Bytes<32>} id - OwnerId this is created using _computeOwnerId.
+     * @param {Uint<64>} coin - The value of the counter
+     * @return {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+     */
   export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>): Bytes<32> {
-    Initializable_assertInitialized();
     return persistentHash<Vector<3, Bytes<32>>>(
              [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
   }
 
+  /**
+     * @description: Creates the owner ID based on the owner account and the nonce
+     *
+     * @notice: None.
+     *
+     * @requirements:
+     * - Confirm it is a public key
+     * - Hash of public key and nonce
+     * @param {Either<ZswapCoinPublicKey, ContractAddress>} pk - Owner account
+     * @param {Bytes<32>} Nonce - The secret value from the client
+     * @return {Bytes<32>} ownerID - This will be used to calculate the owner commitment
+     */
   export pure circuit _computeOwnerId(
                         pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
     assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
-
     return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
+  }
+
+  /**
+   * @description: Checks if a token is locked
+   *
+   * @notice: None.
+   *
+   * @requirements:
+   * - confirm if token is part of the map
+   * - confirm if it is locked
+   * @param {Uint<128>} tokenId - The certificate number
+   * @return {Boolean} result - If the token is looked or not
+   */
+  export circuit _isTokenLocked(tokenId: Uint<128>): Boolean {
+    if (_tokenLocked.member(disclose(tokenId))) {
+      return _tokenLocked.lookup(disclose(tokenId));
+    }
+    return false;
   }
 }
