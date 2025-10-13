@@ -552,3 +552,31 @@ export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
   // Wrapper call
   return BucketDEFI_settleBucket(ownerCommitment);
 }
+
+/**
+* @description: Claim the reward of a certificate
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: NA.
+*
+* @requirements:
+* - Confirm that the caller is the owner of the certificate.
+* - Get the token price
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit claimCertificateReward(tokenId: Uint<128>): [] {
+  // Check if the caller is the owner of the certificate
+  const owner = NonFungibleToken__ownerOf(tokenId);
+  const isOwner = (owner.left == ownPublicKey());
+  assert(isOwner, "Caller is not the owner of the certificate");
+
+  //get the token price
+  const tokenPrice = NonFungibleToken__tokenToPrice.lookup(disclose(tokenId));
+
+  // Wrapper call
+  return BucketDEFI_claimCertificateReward(disclose(tokenId), disclose(tokenPrice), owner);
+}
+
+ 

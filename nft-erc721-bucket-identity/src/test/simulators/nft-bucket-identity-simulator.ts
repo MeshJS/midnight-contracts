@@ -486,4 +486,21 @@ export class Simulator {
     );
     return this.updateStateAndGetLedger(circuitResults);
   }
+
+  public claimCertificateReward(
+    tokenId: bigint,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.claimCertificateReward(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
 }

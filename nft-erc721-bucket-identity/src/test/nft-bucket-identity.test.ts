@@ -535,5 +535,34 @@ describe("Smart contract Testing", () => {
         .as("minter")
         .settleBucket(ownerCommitment, minter);
     });
+
+     it("Creating a Bucket, add certificate, settle and claim", () => {
+      simulator.as("verifier").setUser(Account_minter.left, verifier);
+
+      simulator
+        .as("minter")
+        .mint(
+          Account_minter,
+          TOKENID_1,
+          Certificate_1,
+          Certificate_1_Price,
+          minter
+        );       
+
+      const ownerCommitment = simulator
+        .as("minter")
+        .createBucket(BUCKET1_CONDITIONS, coin1, minter);
+      simulator
+        .as("minter")
+        .addCertificateToBucket(ownerCommitment, TOKENID_1, minter); 
+      
+      simulator
+        .as("minter")
+        .settleBucket(ownerCommitment, minter);
+      
+      simulator
+        .as("minter")
+        .claimCertificateReward(TOKENID_1, minter);      
+    });
   });
 });

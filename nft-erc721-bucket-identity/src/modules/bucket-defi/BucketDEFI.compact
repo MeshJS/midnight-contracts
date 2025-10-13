@@ -240,6 +240,7 @@ module BucketDEFI {
      * - confirmed the certificate is not locked
      * - Insert a certificate into a bucket
      * - Locked the certificate
+     * - Mark the certificate as not claimed
      * - Track the certificate to the bucket
      * @param {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
      * @param {Uint<128>} tokenId - The token ID of the certificate
@@ -256,6 +257,9 @@ module BucketDEFI {
 
     // Lock the certificate
     _certificateLocked.insert(disclose(tokenId), true);
+
+    // Mark the certificate as not claimed
+    _certificateClaimed.insert(disclose(tokenId), false);
 
     // Track the certificate to the bucket
     _certificateToBucket.insert(disclose(tokenId), disclose(ownerCommitment));
@@ -294,6 +298,62 @@ module BucketDEFI {
     _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedCond);
 
     return [];
+  }
+
+  /**
+  * @description: Claim certificates rewards
+  *
+  * @notice: Confirmed if owner should be performed in the top-level contract.
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - confirm certificate is part of a bucket that is settled or claimed
+  * - confirmed the token has not been claimed before
+  * - claim the certificate
+  * - update the certificate as claimed
+  * @param {Uint<128>} tokenId - The ID of the certificate
+   * @param {Uint<64>} tokenPrice - The price of the certificate
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} owner - The owner account of the certificate
+  * @return {[]} empty tuple
+  */
+  export circuit claimCertificateReward(
+                   tokenId: Uint<128>,
+                   tokenPrice: Uint<64>,
+                   owner: Either<ZswapCoinPublicKey, ContractAddress>
+                   ): [] {
+    Initializable_assertInitialized();
+
+    // confirm certificate is part of a bucket that is settled or claimed
+    const bucket = _certificateToBucket.lookup(disclose(tokenId));
+    const bucketConditions = _zkBucketDEFIConditions.lookup(disclose(bucket));
+    assert(bucketConditions.status == STATUS.SETTLED || bucketConditions.status == STATUS.CLAIMED, "Bucket is not settled or claimed");
+
+    // confirmed the token has not been claimed before
+    assert(_certificateClaimed.lookup(disclose(tokenId)) == false, "Certificate has already been claimed");    
+
+    // claim the certificate
+    const pot = _zkBucketDEFIPot.lookup(disclose(bucket));
+    const send_result = send(pot, owner, disclose(tokenPrice));
+    if (send_result.change.value.value != 0) {
+       _zkBucketDEFIPot.insertCoin(
+         bucket,
+         send_result.change.value,
+         right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+    }
+    else {
+       _zkBucketDEFIPot.insert(disclose(bucket), default<QualifiedCoinInfo>);
+    }
+
+    // update the certificate as claimed
+    _certificateClaimed.insert(disclose(tokenId), true);
+
+    return [];
+  }
+
+  export circuit withdrawBucketLeftover(ownerCommitment: Bytes<32>): [] {
+  }
+
+  export circuit proofBucketOwnership(ownerCommitment: Bytes<32>, challenge: Bytes<32>): [] {
   }
 
   /**
