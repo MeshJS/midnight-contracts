@@ -182,6 +182,7 @@ module BucketDEFI {
    *
    * @requirements:
    * - Contract is initialized. 
+   * - Contract is not paused.
    * - The coin is received from ZSwap and check conditions
    * - Read the witness secret nonce to calculate the owner commitment
    * - Insert the owner commitment with the counter
@@ -195,6 +196,7 @@ module BucketDEFI {
    */
   export circuit createBucket(conditions: CONDITIONS, coin: CoinInfo): Bytes<32> {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
 
     // The coin is received from ZSwap and check conditions
     receive(disclose(coin));
@@ -237,6 +239,7 @@ module BucketDEFI {
      *
      * @requirements:
      * - Contract is initialized. 
+     * - Contract is not paused.
      * - confirmed the certificate is not locked
      * - Insert a certificate into a bucket
      * - Update the accumulated price in the bucket
@@ -249,6 +252,7 @@ module BucketDEFI {
      */
   export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>, tokenPrice: Uint<64>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
 
     // Confirm the certificate is not locked
     assert(!_isTokenLocked(tokenId), "Token is locked");
@@ -280,6 +284,7 @@ module BucketDEFI {
   *
   * @requirements:
   * - Contract is initialized. 
+  * - Contract is not paused.
   * - get condition of the bucket 
   * - Check if the bucket is already settled
   * - Check if conditions are met
@@ -289,6 +294,7 @@ module BucketDEFI {
   */
   export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
 
     // get condition of the bucket 
     const conditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
@@ -313,6 +319,7 @@ module BucketDEFI {
   *
   * @requirements:
   * - Contract is initialized. 
+  * - Contract is not paused.
   * - confirm certificate is part of a bucket that is settled or claimed
   * - confirmed the token has not been claimed before
   * - claim the certificate
@@ -328,6 +335,7 @@ module BucketDEFI {
                    owner: Either<ZswapCoinPublicKey, ContractAddress>
                    ): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
 
     // confirm certificate is part of a bucket that is settled or claimed
     const bucket = _certificateToBucket.lookup(disclose(tokenId));
@@ -363,6 +371,7 @@ module BucketDEFI {
   *
   * @requirements:
   * - Contract is initialized. 
+  * - Contract is not paused.
   * - confirm i am the owner
   * - confirm the bucket is settled
   * - calculate the leftovers
@@ -375,6 +384,7 @@ module BucketDEFI {
   */
   export circuit withdrawBucketLeftover(ownerCommitment: Bytes<32>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     
     // confirm i am the owner
     const isOwner = _isBucketOwner(ownerCommitment);
@@ -422,6 +432,7 @@ module BucketDEFI {
   *
   * @requirements:
   * - Contract is initialized. 
+  * - Contract is not paused.
   * - confirm i am the owner
   * - update the bucket with the challenge  
   * @param {Bytes<32>} ownerCommitment - The representation of a bucket
@@ -430,6 +441,7 @@ module BucketDEFI {
   */
   export circuit proofBucketOwnership(ownerCommitment: Bytes<32>, challenge: Bytes<32>): [] {
     Initializable_assertInitialized();
+    Pausable_assertNotPaused();
     
     // proof i am the owner of the bucket
     const isOwner = _isBucketOwner(ownerCommitment);
@@ -440,6 +452,38 @@ module BucketDEFI {
     _authVerifications.lookup(disclose(ownerCommitment)).insert(disclose(challenge));
         
     return [];
+  }
+
+  /**
+   * @description: Pause BucketDEFI calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - The caller must have `Admins master role`.
+   * - Pause BucketDEFI calls.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit pauseBucketDEFI(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    Pausable__pause();
+  }
+
+  /**
+    * @description: Unpause BucketDEFI calls.
+    *
+    * Requirements:
+    * - Check if initialized
+    * - Check if paused
+    * - The caller must have `Admins master role`.
+    * - Unpause BucketDEFI calls.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit unpauseBucketDEFI(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertPaused();
+    Pausable__unpause();
   }
 
   /**

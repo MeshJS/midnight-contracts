@@ -539,4 +539,26 @@ export class Simulator {
     );
     return this.updateStateAndGetLedger(circuitResults);
   }
+
+  public pauseBucketDEFI(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.pauseBucketDEFI({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public unpauseBucketDEFI(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.unpauseBucketDEFI({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
 }
