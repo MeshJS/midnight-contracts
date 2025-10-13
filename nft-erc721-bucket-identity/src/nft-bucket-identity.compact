@@ -508,25 +508,47 @@ export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<
   const tokenPrice = NonFungibleToken__tokenToPrice.lookup(disclose(tokenId));
 
   // Check if the token complies with the bucket conditions.
-  const condition1 = bucketConditions.source == tokenSpecs.source;
-  const condition2 = (bucketConditions.unitPrice * tokenSpecs.generation) >= tokenPrice;
-  const condition3 = bucketConditions.vintageLimit >= tokenSpecs.vintage;
-  const condition4 = bucketConditions.impact == tokenSpecs.impact;
-  const condition5 = bucketConditions.location == tokenSpecs.location;
-  const condition6 = bucketConditions.status == BucketDEFI_STATUS.OPEN;
-  const condition7 = (bucketConditions.accumulatedPrice + tokenPrice) <= bucketConditions.pot;
-  const condition8 = blockTimeGte(bucketConditions.startDate);
-  const condition9 = blockTimeLte(bucketConditions.endDate);
-  assert(condition1 &&
-         condition2 &&
-         condition3 &&
-         condition4 &&
-         condition5 &&
-         condition6 &&
-         condition7 &&
-         condition8 &&
-         condition9, "Token specs don't meet bucket conditions");
+  assert(bucketConditions.source == tokenSpecs.source, "Source doesn't match");
+  assert(bucketConditions.unitPrice * tokenSpecs.generation >= tokenPrice, "Token price doesn't meet unit price");
+  assert(bucketConditions.vintageLimit >= tokenSpecs.vintage, "Token vintage doesn't meet vintage limit");
+  assert(bucketConditions.impact == tokenSpecs.impact, "Impact doesn't match");
+  assert(bucketConditions.location == tokenSpecs.location, "Location doesn't match");
+  assert(bucketConditions.status == BucketDEFI_STATUS.OPEN, "Bucket status isn't open");
+  assert(bucketConditions.accumulatedPrice + tokenPrice <= bucketConditions.pot, "Accumulated price exceeds pot");
+  assert(blockTimeGte(bucketConditions.startDate), "Current time is before start date");
+  assert(blockTimeLte(bucketConditions.endDate), "Current time is after end date");
 
   // Wrapper call
   return BucketDEFI_addCertificateToBucket(ownerCommitment, tokenId);
+}
+
+/**
+* @description: Settle the bucket
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: The settler can settle the bucket or the owner of the bucket.
+*
+* @requirements:
+* - Check that the caller is either a settler or the owner of the bucket.
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
+  // Check if the caller is either a settler or the owner of the bucket.
+  // Read the witness secret nonce to calculate the owner commitment
+  const nonce = BucketDEFI_wit_secretNonce();
+  const callerAsEither =
+                Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                              left: ownPublicKey(),
+                                                              right: ContractAddress { bytes: pad(32, "") } };
+  const id = BucketDEFI__computeOwnerId(callerAsEither, disclose(nonce));
+  // get the counter of the commitment
+  const counter = BucketDEFI__zkBucketToCounter.lookup(disclose(ownerCommitment));
+  const ownerCommitmentCalculated = BucketDEFI__computeOwnerCommitment(id, counter);
+  const isOwner = (ownerCommitmentCalculated == ownerCommitment);
+  if (!isOwner) assertOnlyRole(6 as Field as Bytes<32>);
+
+  // Wrapper call
+  return BucketDEFI_settleBucket(ownerCommitment);
 }

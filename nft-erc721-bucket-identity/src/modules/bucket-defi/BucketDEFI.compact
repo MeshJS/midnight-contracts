@@ -8,6 +8,8 @@ pragma language_version >= 0.17.0;
 *
 * @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
 *
+* @notice: Burn of the token will take place when the certificates rewards are claimed. 
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication
@@ -31,11 +33,9 @@ module BucketDEFI {
   ///////////////////////////////////////////////////////////////////////////////
 
   export enum STATUS {
-    NOTOPEN,
     OPEN,
-    FULL,
     SETTLED,
-    CLOSED
+    CLAIMED
   }
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -94,17 +94,6 @@ module BucketDEFI {
   export ledger _zkBucketDEFIPot: Map<Bytes<32>, QualifiedCoinInfo>;
 
   /**
-  * @description: ZK Bucket representation after Settlement  
-  *
-  * @notice: none
-  *
-  * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-  * @type: {Uint<128>} TokenID - Identification of the certificate  
-  * @type: {Map<ZK-Bucket-Identity, Set<TokenID>>} 
-  */
-  export ledger _zkBucketSettled: Map<Bytes<32>, Set<Uint<128>>>;
-
-  /**
   * @description: Bucket Commitment tracked with counter
   *
   * @notice: none
@@ -130,6 +119,17 @@ module BucketDEFI {
   export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
 
   /**
+   * @description: Track of certificates locked to the bucket
+   *
+   * @notice: none
+   *
+   * @type: {Uint<128>} TokenID - Identification of the certificate
+   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.
+   * @type: {Map<TokenID, ZK Bucket Identity>} 
+   */
+  export ledger _certificateToBucket: Map<Uint<128>, Bytes<32>>;
+
+  /**
   * @description: Track of certificates added to a bucket so they can be placed in multiple buckets
   *
   * @notice: none
@@ -138,7 +138,18 @@ module BucketDEFI {
   * @type: {Boolean} isLocked - The certificate is locked in a bucket 
   * @type: {Map<TokenID, isLocked>} 
   */
-  export ledger _tokenLocked: Map<Uint<128>, Boolean>;
+  export ledger _certificateLocked: Map<Uint<128>, Boolean>;
+
+  /**
+  * @description: Track of certificates claimed
+  *
+  * @notice: none
+  *
+  * @type: {Uint<128>} TokenID - Identification of the certificate
+  * @type: {Boolean} isSold - The certificate is sold
+  * @type: {Map<TokenID, isSold>} 
+  */
+  export ledger _certificateClaimed: Map<Uint<128>, Boolean>;
 
   ///////////////////////////////////////////////////////////////////////////////
   // WITNESS
@@ -229,6 +240,7 @@ module BucketDEFI {
      * - confirmed the certificate is not locked
      * - Insert a certificate into a bucket
      * - Locked the certificate
+     * - Track the certificate to the bucket
      * @param {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
      * @param {Uint<128>} tokenId - The token ID of the certificate
      * @return {[]} empty tuple
@@ -243,7 +255,44 @@ module BucketDEFI {
     _zkBucketDEFI.lookup(disclose(ownerCommitment)).insert(disclose(tokenId));
 
     // Lock the certificate
-    _tokenLocked.insert(disclose(tokenId), true);
+    _certificateLocked.insert(disclose(tokenId), true);
+
+    // Track the certificate to the bucket
+    _certificateToBucket.insert(disclose(tokenId), disclose(ownerCommitment));
+
+    return [];
+  }
+
+  /**
+  * @description: Settle the bucket
+  *
+  * @notice: Still need to implement the access control logic
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - get condition of the bucket 
+  * - Check if the bucket is already settled
+  * - Check if conditions are met
+  * - update the condition
+  * @param {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+  * @return {[]} empty tuple
+  */
+  export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
+    Initializable_assertInitialized();
+
+    // get condition of the bucket 
+    const conditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+
+    // Check if the bucket is already settled
+    assert(conditions.status != STATUS.SETTLED, "Bucket is already settled");
+
+    // Check if conditions are met
+    assert(blockTimeGte(conditions.endDate), "Current time is before end date");
+
+    // Update the condition
+    const updatedCond = CONDITIONS { ...conditions, status: STATUS.SETTLED };
+    _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedCond);
+
     return [];
   }
 
@@ -293,8 +342,8 @@ module BucketDEFI {
    * @return {Boolean} result - If the token is looked or not
    */
   export circuit _isTokenLocked(tokenId: Uint<128>): Boolean {
-    if (_tokenLocked.member(disclose(tokenId))) {
-      return _tokenLocked.lookup(disclose(tokenId));
+    if (_certificateLocked.member(disclose(tokenId))) {
+      return _certificateLocked.lookup(disclose(tokenId));
     }
     return false;
   }
