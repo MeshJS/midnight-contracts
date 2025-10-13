@@ -564,5 +564,76 @@ describe("Smart contract Testing", () => {
         .as("minter")
         .claimCertificateReward(TOKENID_1, minter);      
     });
+
+    it("Creating a Bucket, add certificate, settle, claim certificate and withdraw leftover", () => {
+      simulator.as("verifier").setUser(Account_minter.left, verifier);
+
+      simulator
+        .as("minter")
+        .mint(
+          Account_minter,
+          TOKENID_1,
+          Certificate_1,
+          Certificate_1_Price,
+          minter
+        );       
+
+      const ownerCommitment = simulator
+        .as("minter")
+        .createBucket(BUCKET1_CONDITIONS, coin1, minter);
+      simulator
+        .as("minter")
+        .addCertificateToBucket(ownerCommitment, TOKENID_1, minter); 
+      
+      simulator
+        .as("minter")
+        .settleBucket(ownerCommitment, minter);
+      
+      simulator
+        .as("minter")
+        .claimCertificateReward(TOKENID_1, minter);   
+        
+      simulator
+        .as("minter")
+        .withdrawBucketLeftover(ownerCommitment, minter);      
+    });
+
+     it("Creating a Bucket, add certificate, settle, claim certificate, withdraw leftover and proof bucket ownership", () => {
+      simulator.as("verifier").setUser(Account_minter.left, verifier);
+
+      simulator
+        .as("minter")
+        .mint(
+          Account_minter,
+          TOKENID_1,
+          Certificate_1,
+          Certificate_1_Price,
+          minter
+        );       
+
+      const ownerCommitment = simulator
+        .as("minter")
+        .createBucket(BUCKET1_CONDITIONS, coin1, minter);
+      simulator
+        .as("minter")
+        .addCertificateToBucket(ownerCommitment, TOKENID_1, minter); 
+      
+      simulator
+        .as("minter")
+        .settleBucket(ownerCommitment, minter);
+      
+      simulator
+        .as("minter")
+        .claimCertificateReward(TOKENID_1, minter);   
+        
+      simulator
+        .as("minter")
+        .withdrawBucketLeftover(ownerCommitment, minter); 
+      
+      const challenge = utils.randomBytes(32);
+      simulator
+        .as("minter")
+        .proofBucketOwnership(ownerCommitment, challenge, minter);      
+    });
   });
 });

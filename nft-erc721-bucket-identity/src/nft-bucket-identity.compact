@@ -519,7 +519,7 @@ export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<
   assert(blockTimeLte(bucketConditions.endDate), "Current time is after end date");
 
   // Wrapper call
-  return BucketDEFI_addCertificateToBucket(ownerCommitment, tokenId);
+  return BucketDEFI_addCertificateToBucket(ownerCommitment, tokenId, tokenPrice);
 }
 
 /**
@@ -536,17 +536,7 @@ export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<
 */
 export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
   // Check if the caller is either a settler or the owner of the bucket.
-  // Read the witness secret nonce to calculate the owner commitment
-  const nonce = BucketDEFI_wit_secretNonce();
-  const callerAsEither =
-                Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
-                                                              left: ownPublicKey(),
-                                                              right: ContractAddress { bytes: pad(32, "") } };
-  const id = BucketDEFI__computeOwnerId(callerAsEither, disclose(nonce));
-  // get the counter of the commitment
-  const counter = BucketDEFI__zkBucketToCounter.lookup(disclose(ownerCommitment));
-  const ownerCommitmentCalculated = BucketDEFI__computeOwnerCommitment(id, counter);
-  const isOwner = (ownerCommitmentCalculated == ownerCommitment);
+  const isOwner = BucketDEFI__isBucketOwner(ownerCommitment);
   if (!isOwner) assertOnlyRole(6 as Field as Bytes<32>);
 
   // Wrapper call
@@ -579,4 +569,32 @@ export circuit claimCertificateReward(tokenId: Uint<128>): [] {
   return BucketDEFI_claimCertificateReward(disclose(tokenId), disclose(tokenPrice), owner);
 }
 
- 
+/**
+* @description: Withdraw the leftovers of the bucket
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: NA
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit withdrawBucketLeftover(ownerCommitment: Bytes<32>): [] {
+  return BucketDEFI_withdrawBucketLeftover(ownerCommitment);  
+}
+
+/**
+* @description: Proof that you are the owner of the bucket and the challenge is correct
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: NA
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit proofBucketOwnership(ownerCommitment: Bytes<32>, challenge: Bytes<32>): [] {
+  return BucketDEFI_proofBucketOwnership(ownerCommitment, challenge);  
+}

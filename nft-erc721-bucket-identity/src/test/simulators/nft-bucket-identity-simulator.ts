@@ -503,4 +503,40 @@ export class Simulator {
     );
     return this.updateStateAndGetLedger(circuitResults);
   }
+
+  public withdrawBucketLeftover(
+    ownerCommitment: Uint8Array,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.withdrawBucketLeftover(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      ownerCommitment
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public proofBucketOwnership(
+    ownerCommitment: Uint8Array,
+    challenge: Uint8Array,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.proofBucketOwnership(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      ownerCommitment,
+      challenge
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
 }

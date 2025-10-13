@@ -239,6 +239,7 @@ module BucketDEFI {
      * - Contract is initialized. 
      * - confirmed the certificate is not locked
      * - Insert a certificate into a bucket
+     * - Update the accumulated price in the bucket
      * - Locked the certificate
      * - Mark the certificate as not claimed
      * - Track the certificate to the bucket
@@ -246,7 +247,7 @@ module BucketDEFI {
      * @param {Uint<128>} tokenId - The token ID of the certificate
      * @return {[]} empty tuple
      */
-  export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>): [] {
+  export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>, tokenPrice: Uint<64>): [] {
     Initializable_assertInitialized();
 
     // Confirm the certificate is not locked
@@ -254,6 +255,11 @@ module BucketDEFI {
 
     // Insert a certificate into a bucket
     _zkBucketDEFI.lookup(disclose(ownerCommitment)).insert(disclose(tokenId));
+
+    // update accumulated value in the bucket
+    const bucketConditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+    const updatedBucketConditions = CONDITIONS { ...bucketConditions, accumulatedPrice: (bucketConditions.accumulatedPrice + disclose(tokenPrice)) as Uint<128> };
+    _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedBucketConditions);
 
     // Lock the certificate
     _certificateLocked.insert(disclose(tokenId), true);
@@ -329,7 +335,7 @@ module BucketDEFI {
     assert(bucketConditions.status == STATUS.SETTLED || bucketConditions.status == STATUS.CLAIMED, "Bucket is not settled or claimed");
 
     // confirmed the token has not been claimed before
-    assert(_certificateClaimed.lookup(disclose(tokenId)) == false, "Certificate has already been claimed");    
+    assert(_certificateClaimed.lookup(disclose(tokenId)) == false, "Certificate has already been claimed");
 
     // claim the certificate
     const pot = _zkBucketDEFIPot.lookup(disclose(bucket));
@@ -350,10 +356,90 @@ module BucketDEFI {
     return [];
   }
 
+   /**
+  * @description: Withdraw leftover from a bucket
+  *
+  * @notice: NA.
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - confirm i am the owner
+  * - confirm the bucket is settled
+  * - calculate the leftovers
+  * - get the pot
+  * - get my own account
+  * - withdraw the leftover
+  * - update the bucket as claimed  
+  * @param {Bytes<32>} ownerCommitment - The representation of a bucket
+  * @return {[]} empty tuple
+  */
   export circuit withdrawBucketLeftover(ownerCommitment: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    
+    // confirm i am the owner
+    const isOwner = _isBucketOwner(ownerCommitment);
+    assert(isOwner, "Not the owner");
+    
+    // confirm the bucket is settled
+    const bucketConditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+    assert(bucketConditions.status == STATUS.SETTLED, "Bucket is not settled");
+    
+    // calculate the leftovers
+    const leftovers = bucketConditions.pot - bucketConditions.accumulatedPrice;
+
+    // get the pot
+    const pot = _zkBucketDEFIPot.lookup(disclose(ownerCommitment));
+
+    // get my own account
+    const caller =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    
+    // withdraw the leftover
+    const send_result = send(pot, caller, leftovers);
+    if (send_result.change.value.value != 0) {
+       _zkBucketDEFIPot.insertCoin(
+         disclose(ownerCommitment),
+         send_result.change.value,
+         right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+    }
+    else {
+       _zkBucketDEFIPot.insert(disclose(ownerCommitment), default<QualifiedCoinInfo>);
+    }
+
+    // update the bucket as claimed
+    const updatedCond = CONDITIONS { ...bucketConditions, status: STATUS.CLAIMED };
+    _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedCond);
+    
+    return [];
   }
 
+  /**
+  * @description: Proof that you are the owner of the bucket and the challenge is correct
+  *
+  * @notice: NA.
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - confirm i am the owner
+  * - update the bucket with the challenge  
+  * @param {Bytes<32>} ownerCommitment - The representation of a bucket
+  * @param {Bytes<32>} challenge - The challenge to be included
+  * @return {[]} empty tuple
+  */
   export circuit proofBucketOwnership(ownerCommitment: Bytes<32>, challenge: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    
+    // proof i am the owner of the bucket
+    const isOwner = _isBucketOwner(ownerCommitment);
+    assert(isOwner, "Not the owner");
+    
+    // include the challenge
+    _authVerifications.insert(disclose(ownerCommitment), default<Set<Bytes<32>>>);
+    _authVerifications.lookup(disclose(ownerCommitment)).insert(disclose(challenge));
+        
+    return [];
   }
 
   /**
@@ -406,5 +492,32 @@ module BucketDEFI {
       return _certificateLocked.lookup(disclose(tokenId));
     }
     return false;
+  }
+
+  /**
+   * @description: Checks if you are the owner of the bucket. Dont revert.
+   *
+   * @notice: None.
+   *
+   * @requirements:
+   * - get private key
+   * - calculate hashes
+   * - compare owner commitment
+   * @param {Bytes<32>>} ownerCommitment - Representing the bucket ID
+   * @return {Boolean} result - If you are the owner of the bucket
+   */
+  export circuit _isBucketOwner(ownerCommitment: Bytes<32>): Boolean {
+    // Read the witness secret nonce to calculate the owner commitment
+    const nonce = wit_secretNonce();
+    const callerAsEither =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    const id = _computeOwnerId(callerAsEither, disclose(nonce));
+    // get the counter of the commitment
+    const counter = _zkBucketToCounter.lookup(disclose(ownerCommitment));
+    const ownerCommitmentCalculated = _computeOwnerCommitment(id, counter);
+    const isOwner = (ownerCommitmentCalculated == ownerCommitment);
+    return isOwner;
   }
 }
