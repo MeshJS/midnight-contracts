@@ -8,6 +8,8 @@ pragma language_version >= 0.17.0;
 *
 * @notice: Initialization logic is all handled within the module. All callable circuits (not with prefix _) are protected by `Initializable_assertInitialized()`. 
 *
+* @notice: Burn of the token will take place when the certificates rewards are claimed. 
+*
 * @notice Missing Features and Improvements:
 * - Events
 * - Contract-to-Contract Communication
@@ -23,6 +25,7 @@ pragma language_version >= 0.17.0;
 module BucketDEFI {
   import CompactStandardLibrary;
   import "./Initializable" prefix Initializable_;
+  import "./Pausable" prefix Pausable_;
   import "../token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -30,11 +33,9 @@ module BucketDEFI {
   ///////////////////////////////////////////////////////////////////////////////
 
   export enum STATUS {
-    NOTOPEN,
     OPEN,
-    FULL,
     SETTLED,
-    CLOSED
+    CLAIMED
   }
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -65,12 +66,10 @@ module BucketDEFI {
   * @notice: none
   *
   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-  * @type: {Uint<64>} TokenID - Identification of the certificate
-  * @type: {Either<ZswapCoinPublicKey, ContractAddress>} Owner - Original owner of the certificate
-  * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Owner>>} 
+  * @type: {Uint<128>} TokenID - Identification of the certificate
+  * @type: {Map<ZK-Bucket-Identity, Map<TokenID, Set<Owner>>>} 
   */
-  export ledger _zkBucketDEFI: Map<Bytes<32>,
-                                   Map<Uint<64>, Either<ZswapCoinPublicKey, ContractAddress>>>;
+  export ledger _zkBucketDEFI: Map<Bytes<32>, Set<Uint<128>>>;
 
   /**
   * @description: ZK Bucket Conditions  
@@ -84,15 +83,15 @@ module BucketDEFI {
   export ledger _zkBucketDEFIConditions: Map<Bytes<32>, CONDITIONS>;
 
   /**
-  * @description: ZK Bucket representation after Settlement  
+  * @description: ZK Bucket Pot  
   *
   * @notice: none
   *
   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.  
-  * @type: {Uint<64>} TokenID - Identification of the certificate  
-  * @type: {Map<ZK-Bucket-Identity, Set<TokenID>>} 
+  * @type: {QualifiedCoinInfo} Pot - Amount of resources available for this bucket
+  * @type: {Map<ZK-Bucket-Identity, POT>} 
   */
-  export ledger _zkBucketSettled: Map<Bytes<32>, Set<Uint<64>>>;
+  export ledger _zkBucketDEFIPot: Map<Bytes<32>, QualifiedCoinInfo>;
 
   /**
   * @description: Bucket Commitment tracked with counter
@@ -103,7 +102,7 @@ module BucketDEFI {
   * @type: {Uint<64>} Counter - Bucket counter used when calculated the hash
   * @type: {Map<ZK-Bucket-Identity, Counter>} 
   */
-  export ledger _zkBucketToPublicRandomBytes: Map<Bytes<32>, Bytes<32>>;
+  export ledger _zkBucketToCounter: Map<Bytes<32>, Uint<64>>;
 
   // Counter for calculating the bucket commitment
   export ledger _zkBucketCounter: Counter;
@@ -119,6 +118,39 @@ module BucketDEFI {
   */
   export ledger _authVerifications: Map<Bytes<32>, Set<Bytes<32>>>;
 
+  /**
+   * @description: Track of certificates locked to the bucket
+   *
+   * @notice: none
+   *
+   * @type: {Uint<128>} TokenID - Identification of the certificate
+   * @type: {Bytes<32>} ZK Bucket Identity - Hash of owner public key + witness nonce + counter.
+   * @type: {Map<TokenID, ZK Bucket Identity>} 
+   */
+  export ledger _certificateToBucket: Map<Uint<128>, Bytes<32>>;
+
+  /**
+  * @description: Track of certificates added to a bucket so they can be placed in multiple buckets
+  *
+  * @notice: none
+  *
+  * @type: {Uint<128>} TokenID - Identification of the certificate
+  * @type: {Boolean} isLocked - The certificate is locked in a bucket 
+  * @type: {Map<TokenID, isLocked>} 
+  */
+  export ledger _certificateLocked: Map<Uint<128>, Boolean>;
+
+  /**
+  * @description: Track of certificates claimed
+  *
+  * @notice: none
+  *
+  * @type: {Uint<128>} TokenID - Identification of the certificate
+  * @type: {Boolean} isSold - The certificate is sold
+  * @type: {Map<TokenID, isSold>} 
+  */
+  export ledger _certificateClaimed: Map<Uint<128>, Boolean>;
+
   ///////////////////////////////////////////////////////////////////////////////
   // WITNESS
   ///////////////////////////////////////////////////////////////////////////////
@@ -126,66 +158,410 @@ module BucketDEFI {
   // Secret nonce used for calculating the owner commitment
   export witness wit_secretNonce(): Bytes<32>;
 
-   // Random number generated offchain
-  export witness wit_publicRandomBytes(): Bytes<32>;  ////the random value will this generated offchain plus the value of counter as a security but all ofchain so we dont run into concusrrency issue due to the counter. 
-
   ///////////////////////////////////////////////////////////////////////////////
   // CIRCUITS
   ///////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * @description: Initializes the contract.
+   *
+   * @notice: This MUST be called in the implementing contract's constructor. Failure to do so can lead to an irreparable contract.
+   *
+   * @requirements:
+   * - Contract is initialized. 
+   * @return {[]} - Empty tuple.
+   */
   export circuit initialize(): [] {
     Initializable_initialize();
   }
 
-  // export circuit owner(): Bytes<32> {
-  //   Initializable_assertInitialized();
-  //   return _ownerCommitment;
-  // }
+  /**
+   * @description: Create a new bucket.
+   *
+   * @notice: None.
+   *
+   * @requirements:
+   * - Contract is initialized. 
+   * - Contract is not paused.
+   * - The coin is received from ZSwap and check conditions
+   * - Read the witness secret nonce to calculate the owner commitment
+   * - Insert the owner commitment with the counter
+   * - Insert the owner commitment with the conditions
+   * - Insert the owner commitment with the pot
+   * - Create the bucket with the new owner commitment
+   * - Increment the counter
+   * @param {CONDITIONS} conditions - The conditions of the bucket.
+   * @param {CoinInfo} coin - The coin the user has to deposit into the contract
+   * @return {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+   */
+  export circuit createBucket(conditions: CONDITIONS, coin: CoinInfo): Bytes<32> {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
 
-  // export circuit transferOwnership(newOwnerId: Bytes<32>): [] {
-  //   Initializable_assertInitialized();
+    // The coin is received from ZSwap and check conditions
+    receive(disclose(coin));
+    assert(coin.value == conditions.pot, "requires to deposit the pot amount");
+    assert(coin.color == nativeToken(), "Invalid coin provided");
 
-  //   assertOnlyOwner();
-  //   assert(newOwnerId != default<Bytes<32>>, "BucketDEFI: invalid id");
-  //   _transferOwnership(newOwnerId);
-  // }
+    // Read the witness secret nonce to calculate the owner commitment
+    const nonce = wit_secretNonce();
+    const callerAsEither =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    const id = _computeOwnerId(callerAsEither, disclose(nonce));
+    const ownerCommitment = _computeOwnerCommitment(id, _zkBucketCounter);
 
-  // export circuit renounceOwnership(): [] {
-  //   Initializable_assertInitialized();
+    // Insert the owner commitment with the counter
+    _zkBucketToCounter.insert(ownerCommitment, _zkBucketCounter);
 
-  //   assertOnlyOwner();
-  //   _ownerCommitment.resetToDefault();
-  // }
+    // Insert the owner commitment with the conditions
+    _zkBucketDEFIConditions.insert(ownerCommitment, disclose(conditions));
 
-  // export circuit assertOnlyOwner(): [] {
-  //   Initializable_assertInitialized();
+    // Insert the owner commitment with the pot
+    _zkBucketDEFIPot.insertCoin(
+      ownerCommitment, disclose(coin), right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
 
-  //   const nonce = wit_secretNonce();
-  //   const callerAsEither =
-  //                 Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
-  //                                                               left: ownPublicKey(),
-  //                                                               right: ContractAddress { bytes: pad(32, "") } };
-  //   const id = _computeOwnerId(callerAsEither, nonce);
-  //   assert(_ownerCommitment == _computeOwnerCommitment(id, _counter), "BucketDEFI: caller is not the owner");
-  // }
+    // Create the bucket with the new owner commitment
+    _zkBucketDEFI.insert(ownerCommitment, default<Set<Uint<128>>>);
 
-  // export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>,): Bytes<32> {
-  //   Initializable_assertInitialized();
-  //   return persistentHash<Vector<3, Bytes<32>>>(
-  //            [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
-  // }
+    // Increment the counter
+    _zkBucketCounter += 1;
 
-  // export pure circuit _computeOwnerId(
-  //                       pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
-  //   assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
+    // Return the owner commitment
+    return ownerCommitment;
+  }
 
-  //   return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
-  // }
+  /**
+     * @description: Add a certificate to the bucket
+     *
+     * @notice: Still need to implement the logic to check if the certificate complies with the conditions. Since this involves analizing different module states, this will be done at the top-level contract.
+     *
+     * @requirements:
+     * - Contract is initialized. 
+     * - Contract is not paused.
+     * - confirmed the certificate is not locked
+     * - Insert a certificate into a bucket
+     * - Update the accumulated price in the bucket
+     * - Locked the certificate
+     * - Mark the certificate as not claimed
+     * - Track the certificate to the bucket
+     * @param {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+     * @param {Uint<128>} tokenId - The token ID of the certificate
+     * @return {[]} empty tuple
+     */
+  export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>, tokenPrice: Uint<64>): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
 
-  // export circuit _transferOwnership(newOwnerId: Bytes<32>): [] {
-  //   Initializable_assertInitialized();
+    // Confirm the certificate is not locked
+    assert(!_isTokenLocked(tokenId), "Token is locked");
 
-  //   _counter.increment(1);
-  //   _ownerCommitment = _computeOwnerCommitment(disclose(newOwnerId), _counter);
-  // }
+    // Insert a certificate into a bucket
+    _zkBucketDEFI.lookup(disclose(ownerCommitment)).insert(disclose(tokenId));
+
+    // update accumulated value in the bucket
+    const bucketConditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+    const updatedBucketConditions = CONDITIONS { ...bucketConditions, accumulatedPrice: (bucketConditions.accumulatedPrice + disclose(tokenPrice)) as Uint<128> };
+    _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedBucketConditions);
+
+    // Lock the certificate
+    _certificateLocked.insert(disclose(tokenId), true);
+
+    // Mark the certificate as not claimed
+    _certificateClaimed.insert(disclose(tokenId), false);
+
+    // Track the certificate to the bucket
+    _certificateToBucket.insert(disclose(tokenId), disclose(ownerCommitment));
+
+    return [];
+  }
+
+  /**
+  * @description: Settle the bucket
+  *
+  * @notice: Still need to implement the access control logic
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - Contract is not paused.
+  * - get condition of the bucket 
+  * - Check if the bucket is already settled
+  * - Check if conditions are met
+  * - update the condition
+  * @param {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+  * @return {[]} empty tuple
+  */
+  export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+
+    // get condition of the bucket 
+    const conditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+
+    // Check if the bucket is already settled
+    assert(conditions.status != STATUS.SETTLED, "Bucket is already settled");
+
+    // Check if conditions are met
+    assert(blockTimeGte(conditions.endDate), "Current time is before end date");
+
+    // Update the condition
+    const updatedCond = CONDITIONS { ...conditions, status: STATUS.SETTLED };
+    _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedCond);
+
+    return [];
+  }
+
+  /**
+  * @description: Claim certificates rewards
+  *
+  * @notice: Confirmed if owner should be performed in the top-level contract.
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - Contract is not paused.
+  * - confirm certificate is part of a bucket that is settled or claimed
+  * - confirmed the token has not been claimed before
+  * - claim the certificate
+  * - update the certificate as claimed
+  * @param {Uint<128>} tokenId - The ID of the certificate
+   * @param {Uint<64>} tokenPrice - The price of the certificate
+    * @param {Either<ZswapCoinPublicKey, ContractAddress>} owner - The owner account of the certificate
+  * @return {[]} empty tuple
+  */
+  export circuit claimCertificateReward(
+                   tokenId: Uint<128>,
+                   tokenPrice: Uint<64>,
+                   owner: Either<ZswapCoinPublicKey, ContractAddress>
+                   ): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+
+    // confirm certificate is part of a bucket that is settled or claimed
+    const bucket = _certificateToBucket.lookup(disclose(tokenId));
+    const bucketConditions = _zkBucketDEFIConditions.lookup(disclose(bucket));
+    assert(bucketConditions.status == STATUS.SETTLED || bucketConditions.status == STATUS.CLAIMED, "Bucket is not settled or claimed");
+
+    // confirmed the token has not been claimed before
+    assert(_certificateClaimed.lookup(disclose(tokenId)) == false, "Certificate has already been claimed");
+
+    // claim the certificate
+    const pot = _zkBucketDEFIPot.lookup(disclose(bucket));
+    const send_result = send(pot, owner, disclose(tokenPrice));
+    if (send_result.change.value.value != 0) {
+       _zkBucketDEFIPot.insertCoin(
+         bucket,
+         send_result.change.value,
+         right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+    }
+    else {
+       _zkBucketDEFIPot.insert(disclose(bucket), default<QualifiedCoinInfo>);
+    }
+
+    // update the certificate as claimed
+    _certificateClaimed.insert(disclose(tokenId), true);
+
+    return [];
+  }
+
+   /**
+  * @description: Withdraw leftover from a bucket
+  *
+  * @notice: NA.
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - Contract is not paused.
+  * - confirm i am the owner
+  * - confirm the bucket is settled
+  * - calculate the leftovers
+  * - get the pot
+  * - get my own account
+  * - withdraw the leftover
+  * - update the bucket as claimed  
+  * @param {Bytes<32>} ownerCommitment - The representation of a bucket
+  * @return {[]} empty tuple
+  */
+  export circuit withdrawBucketLeftover(ownerCommitment: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    
+    // confirm i am the owner
+    const isOwner = _isBucketOwner(ownerCommitment);
+    assert(isOwner, "Not the owner");
+    
+    // confirm the bucket is settled
+    const bucketConditions = _zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+    assert(bucketConditions.status == STATUS.SETTLED, "Bucket is not settled");
+    
+    // calculate the leftovers
+    const leftovers = bucketConditions.pot - bucketConditions.accumulatedPrice;
+
+    // get the pot
+    const pot = _zkBucketDEFIPot.lookup(disclose(ownerCommitment));
+
+    // get my own account
+    const caller =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    
+    // withdraw the leftover
+    const send_result = send(pot, caller, leftovers);
+    if (send_result.change.value.value != 0) {
+       _zkBucketDEFIPot.insertCoin(
+         disclose(ownerCommitment),
+         send_result.change.value,
+         right<ZswapCoinPublicKey, ContractAddress>(kernel.self()));
+    }
+    else {
+       _zkBucketDEFIPot.insert(disclose(ownerCommitment), default<QualifiedCoinInfo>);
+    }
+
+    // update the bucket as claimed
+    const updatedCond = CONDITIONS { ...bucketConditions, status: STATUS.CLAIMED };
+    _zkBucketDEFIConditions.insert(disclose(ownerCommitment), updatedCond);
+    
+    return [];
+  }
+
+  /**
+  * @description: Proof that you are the owner of the bucket and the challenge is correct
+  *
+  * @notice: NA.
+  *
+  * @requirements:
+  * - Contract is initialized. 
+  * - Contract is not paused.
+  * - confirm i am the owner
+  * - update the bucket with the challenge  
+  * @param {Bytes<32>} ownerCommitment - The representation of a bucket
+  * @param {Bytes<32>} challenge - The challenge to be included
+  * @return {[]} empty tuple
+  */
+  export circuit proofBucketOwnership(ownerCommitment: Bytes<32>, challenge: Bytes<32>): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    
+    // proof i am the owner of the bucket
+    const isOwner = _isBucketOwner(ownerCommitment);
+    assert(isOwner, "Not the owner");
+    
+    // include the challenge
+    _authVerifications.insert(disclose(ownerCommitment), default<Set<Bytes<32>>>);
+    _authVerifications.lookup(disclose(ownerCommitment)).insert(disclose(challenge));
+        
+    return [];
+  }
+
+  /**
+   * @description: Pause BucketDEFI calls.
+   *
+   * Requirements:
+   * - Check if initialized
+   * - Check if not paused
+   * - The caller must have `Admins master role`.
+   * - Pause BucketDEFI calls.
+   * @return {[]} - Empty tuple.
+   */
+  export circuit pauseBucketDEFI(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertNotPaused();
+    Pausable__pause();
+  }
+
+  /**
+    * @description: Unpause BucketDEFI calls.
+    *
+    * Requirements:
+    * - Check if initialized
+    * - Check if paused
+    * - The caller must have `Admins master role`.
+    * - Unpause BucketDEFI calls.
+    * @return {[]} - Empty tuple.
+    */
+  export circuit unpauseBucketDEFI(): [] {
+    Initializable_assertInitialized();
+    Pausable_assertPaused();
+    Pausable__unpause();
+  }
+
+  /**
+     * @description: Creates the owner commitment based on the ownerID and the counter
+     *
+     * @notice: None.
+     *
+     * @requirements:
+     * - Hash of id, counter and spacer
+     * @param {Bytes<32>} id - OwnerId this is created using _computeOwnerId.
+     * @param {Uint<64>} coin - The value of the counter
+     * @return {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+     */
+  export circuit _computeOwnerCommitment(id: Bytes<32>, counter: Uint<64>): Bytes<32> {
+    return persistentHash<Vector<3, Bytes<32>>>(
+             [id, counter as Field as Bytes<32>, pad(32, "BucketDEFI: shield:")]);
+  }
+
+  /**
+     * @description: Creates the owner ID based on the owner account and the nonce
+     *
+     * @notice: None.
+     *
+     * @requirements:
+     * - Confirm it is a public key
+     * - Hash of public key and nonce
+     * @param {Either<ZswapCoinPublicKey, ContractAddress>} pk - Owner account
+     * @param {Bytes<32>} Nonce - The secret value from the client
+     * @return {Bytes<32>} ownerID - This will be used to calculate the owner commitment
+     */
+  export pure circuit _computeOwnerId(
+                        pk: Either<ZswapCoinPublicKey, ContractAddress>, nonce: Bytes<32>): Bytes<32> {
+    assert(pk.is_left, "BucketDEFI: contract address owners are not yet supported");
+    return persistentHash<Vector<2, Bytes<32>>>([pk.left.bytes, nonce]);
+  }
+
+  /**
+   * @description: Checks if a token is locked
+   *
+   * @notice: None.
+   *
+   * @requirements:
+   * - confirm if token is part of the map
+   * - confirm if it is locked
+   * @param {Uint<128>} tokenId - The certificate number
+   * @return {Boolean} result - If the token is looked or not
+   */
+  export circuit _isTokenLocked(tokenId: Uint<128>): Boolean {
+    if (_certificateLocked.member(disclose(tokenId))) {
+      return _certificateLocked.lookup(disclose(tokenId));
+    }
+    return false;
+  }
+
+  /**
+   * @description: Checks if you are the owner of the bucket. Dont revert.
+   *
+   * @notice: None.
+   *
+   * @requirements:
+   * - get private key
+   * - calculate hashes
+   * - compare owner commitment
+   * @param {Bytes<32>>} ownerCommitment - Representing the bucket ID
+   * @return {Boolean} result - If you are the owner of the bucket
+   */
+  export circuit _isBucketOwner(ownerCommitment: Bytes<32>): Boolean {
+    // Read the witness secret nonce to calculate the owner commitment
+    const nonce = wit_secretNonce();
+    const callerAsEither =
+                  Either<ZswapCoinPublicKey, ContractAddress> { is_left: true,
+                                                                left: ownPublicKey(),
+                                                                right: ContractAddress { bytes: pad(32, "") } };
+    const id = _computeOwnerId(callerAsEither, disclose(nonce));
+    // get the counter of the commitment
+    const counter = _zkBucketToCounter.lookup(disclose(ownerCommitment));
+    const ownerCommitmentCalculated = _computeOwnerCommitment(id, counter);
+    const isOwner = (ownerCommitmentCalculated == ownerCommitment);
+    return isOwner;
+  }
 }

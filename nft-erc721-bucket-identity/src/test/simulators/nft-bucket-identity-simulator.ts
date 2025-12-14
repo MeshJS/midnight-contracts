@@ -14,7 +14,14 @@ import {
   ledger,
   ContractAddress as ContractAddress_,
   ZswapCoinPublicKey as ZswapCoinPublicKey_,
-  Either
+  Either,
+  CoinInfo,
+  type NonFungibleToken_Certificate,
+  NonFungibleToken_Source,
+  NonFungibleToken_Impact,
+  NonFungibleToken_Location,
+  BucketDEFI_CONDITIONS,
+  BucketDEFI_STATUS
 } from "../../managed/nft-bucket-identity/contract/index.cjs";
 import {
   type PrivateState,
@@ -28,6 +35,16 @@ import {
   encodeTokenType
 } from "@midnight-ntwrk/onchain-runtime";
 import { adminMaster } from "../nft-bucket-identity.test.js";
+
+export {
+  type NonFungibleToken_Certificate,
+  NonFungibleToken_Source,
+  NonFungibleToken_Impact,
+  NonFungibleToken_Location,
+  type BucketDEFI_CONDITIONS,
+  BucketDEFI_STATUS,
+  type CoinInfo
+};
 
 const config = new LogicTestingConfig();
 export const logger = await createLogger(config.logDir);
@@ -48,7 +65,7 @@ export class Simulator {
       currentZswapLocalState
     } = this.contract.initialState(
       constructorContext(
-        { privateValue: privateState.privateValue },
+        { secretNonce: privateState.secretNonce },
         adminMaster
       ),
       name,
@@ -68,15 +85,15 @@ export class Simulator {
   }
 
   static deployContract(
-    secretKey: number,
+    secretNonce: Uint8Array,
     name: string,
     symbol: string
   ): Simulator {
-    return new Simulator(createPrivateState(secretKey), name, symbol);
+    return new Simulator(createPrivateState(secretNonce), name, symbol);
   }
 
-  createPrivateState(pName: string, secretKey: number): void {
-    this.userPrivateStates[pName] = createPrivateState(secretKey);
+  createPrivateState(pName: string, secretNonce: Uint8Array): void {
+    this.userPrivateStates[pName] = createPrivateState(secretNonce);
   }
 
   private buildTurnContext(
@@ -285,6 +302,258 @@ export class Simulator {
   public unpauseIdentity(caller?: CoinPublicKey): Ledger {
     // Update the current context to be the result of executing the circuit.
     const circuitResults = this.contract.impureCircuits.unpauseIdentity({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public mint(
+    to: Either<ZswapCoinPublicKey_, ContractAddress_>,
+    tokenId: bigint,
+    tokenCertificate: NonFungibleToken_Certificate,
+    price: bigint,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.mint(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      to,
+      tokenId,
+      tokenCertificate,
+      price
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public setTokenPrice(
+    tokenId: bigint,
+    price: bigint,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.setTokenPrice(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId,
+      price
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public burn(tokenId: bigint, caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.burn(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public balanceOf(
+    owner: Either<ZswapCoinPublicKey_, ContractAddress_>,
+    caller?: CoinPublicKey
+  ): bigint {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.balanceOf(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      owner
+    );
+    return circuitResults.result;
+  }
+
+  public ownerOf(
+    tokenId: bigint,
+    caller?: CoinPublicKey
+  ): Either<ZswapCoinPublicKey_, ContractAddress_> {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.ownerOf(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId
+    );
+    return circuitResults.result;
+  }
+
+  public tokenCertificate(
+    tokenId: bigint,
+    caller?: CoinPublicKey
+  ): NonFungibleToken_Certificate {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.tokenCertificate(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId
+    );
+    return circuitResults.result;
+  }
+
+  public tokenPrice(tokenId: bigint, caller?: CoinPublicKey): bigint {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.tokenPrice(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId
+    );
+    return circuitResults.result;
+  }
+
+  public createBucket(
+    conditions: BucketDEFI_CONDITIONS,
+    coin: CoinInfo,
+    caller?: CoinPublicKey
+  ): Uint8Array {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.createBucket(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      conditions,
+      coin
+    );
+    this.updateStateAndGetLedger(circuitResults);
+    return circuitResults.result;
+  }
+
+  public addCertificateToBucket(
+    ownerCommitment: Uint8Array,
+    tokenId: bigint,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.addCertificateToBucket(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      ownerCommitment,
+      tokenId
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public settleBucket(
+    ownerCommitment: Uint8Array,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.settleBucket(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      ownerCommitment
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public claimCertificateReward(
+    tokenId: bigint,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.claimCertificateReward(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      tokenId
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public withdrawBucketLeftover(
+    ownerCommitment: Uint8Array,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.withdrawBucketLeftover(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      ownerCommitment
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public proofBucketOwnership(
+    ownerCommitment: Uint8Array,
+    challenge: Uint8Array,
+    caller?: CoinPublicKey
+  ): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.proofBucketOwnership(
+      {
+        ...this.circuitContext,
+        currentZswapLocalState: caller
+          ? emptyZswapLocalState(caller)
+          : this.circuitContext.currentZswapLocalState
+      },
+      ownerCommitment,
+      challenge
+    );
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public pauseBucketDEFI(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.pauseBucketDEFI({
+      ...this.circuitContext,
+      currentZswapLocalState: caller
+        ? emptyZswapLocalState(caller)
+        : this.circuitContext.currentZswapLocalState
+    });
+    return this.updateStateAndGetLedger(circuitResults);
+  }
+
+  public unpauseBucketDEFI(caller?: CoinPublicKey): Ledger {
+    // Update the current context to be the result of executing the circuit.
+    const circuitResults = this.contract.impureCircuits.unpauseBucketDEFI({
       ...this.circuitContext,
       currentZswapLocalState: caller
         ? emptyZswapLocalState(caller)

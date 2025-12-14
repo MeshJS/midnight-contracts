@@ -9,7 +9,8 @@ pragma language_version >= 0.17;
 * @notice: Best Practices
 * - Modules are being created as in React, self-contained and with its own logic (logic-module + Initializable-module + Pausable-module).
 * - All the initializing circuits are called within the constructor. Plus some intial settings.
-* - Modules that contain State and initialization should not call other modules circuits. Only allowed at the top-level contract to avoid state errors. Calling Structs and enum between modules it is permitted.
+* - You can export circuits and types from one module and import them into another scope (including the top-level contract). However, the docs don’t show—or suggest—direct access to a module’s ledger state from another module. In practice, inter-module ledger state should flow through circuits (though I couldn’t get that working reliably). Given that, we prefer to read/write state only at the top level when a circuits depends on different modules states. 
+* - Modules types and utilites pure functions are used between modules.
 * - Utils modules only contain pure circuits.
 *
 * @notice Missing Features and Improvements:
@@ -28,13 +29,11 @@ import CompactStandardLibrary;
 
 import "./modules/access-control/AccessControl" prefix AccessControl_;
 
+import "./modules/identity/Identity" prefix Identity_;
+
 import "./modules/token-nft/NonFungibleToken" prefix NonFungibleToken_;
 
 import "./modules/bucket-defi/BucketDEFI" prefix BucketDEFI_;
-
-import "./modules/identity/Identity" prefix Identity_;
-
-export { ZswapCoinPublicKey, ContractAddress, Either };
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE FROM MODULES
@@ -43,6 +42,24 @@ export { ZswapCoinPublicKey, ContractAddress, Either };
 export { AccessControl__operatorRoles, AccessControl__adminRoles, AccessControl__ADMIN_MASTER };
 
 export { Identity__verifiedUsersforBuckets };
+
+export { NonFungibleToken__name,
+         NonFungibleToken__symbol,
+         NonFungibleToken__certificatesCreatedCounter,
+         NonFungibleToken__owners,
+         NonFungibleToken__balances,
+         NonFungibleToken__tokenApprovals,
+         NonFungibleToken__operatorApprovals,
+         NonFungibleToken__tokenToCertificate,
+         NonFungibleToken__tokenToPrice,
+         NonFungibleToken_Certificate,
+         NonFungibleToken_Location,
+         NonFungibleToken_Impact,
+         NonFungibleToken_Source };
+
+export { BucketDEFI__zkBucketCounter, BucketDEFI_CONDITIONS, BucketDEFI_STATUS }
+
+export { ZswapCoinPublicKey, ContractAddress, Either, CoinInfo };
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC STATE TOP LEVEL
@@ -64,9 +81,9 @@ export { Identity__verifiedUsersforBuckets };
 */
 constructor(_name: Opaque<"string">, _symbol: Opaque<"string">) {
   AccessControl_initialize();
+  Identity_initialize();
   NonFungibleToken_initialize(_name, _symbol);
   BucketDEFI_initialize();
-  Identity_initialize();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,4 +305,330 @@ export circuit pauseIdentity(): [] {
 export circuit unpauseIdentity(): [] {
   assertOnlyRole(default<Bytes<32>>);
   Identity_unpauseIdentity();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS TOKEN
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+  * @description Returns the number of tokens in `owner`'s account.
+  *
+  * @circuitInfo k=xx, rows=xx
+  *
+  * @requirements:
+  * - Wrapper call
+  * @param {Either<ZswapCoinPublicKey, ContractAddress>)} owner - The account to query.
+  * @return {Uint<128>} - The number of tokens in `owner`'s account.
+  */
+export circuit balanceOf(owner: Either<ZswapCoinPublicKey, ContractAddress>): Uint<128> {
+  return NonFungibleToken_balanceOf(owner);
+}
+
+/**
+* @description Returns the owner of the `tokenId` token. If not revert.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - Wrapper call
+* @param {Uint<128>} tokenId - The identifier for a token.
+* @return {Either<ZswapCoinPublicKey, ContractAddress>} - The account that owns the token.
+*/
+export circuit ownerOf(tokenId: Uint<128>): Either<ZswapCoinPublicKey, ContractAddress> {
+  return NonFungibleToken_ownerOf(tokenId);
+}
+
+/**
+* @description Returns the token Certificate for the given `tokenId`. Reverts if the tokenCertificate does not exist.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - Wrapper call
+* @param {Uint<128>} tokenId - The identifier for a token.
+* @return {Certificate} - the token metadata
+*/
+export circuit tokenCertificate(tokenId: Uint<128>): NonFungibleToken_Certificate {
+  return NonFungibleToken_tokenCertificate(tokenId);
+}
+
+/**
+* @description Returns the token Price for the given `tokenId`. Reverts if the tokenPrice does not exist.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - Wrapper call
+* @param {Uint<128>} tokenId - The identifier for a token.
+* @return {Uint<64>} - the price of the token
+*/
+export circuit tokenPrice(tokenId: Uint<128>): Uint<64> {
+  return NonFungibleToken_tokenPrice(tokenId);
+}
+
+/**
+* @description Mints `tokenId` and transfers it to `to`.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - The caller must have `Minter role`.
+* - Wrapper call
+* @param {Either<ZswapCoinPublicKey, ContractAddress>} to - The target account of the token transfer
+* @param {Uint<128>} tokenId - The token identifier
+* @param {Certificate} tokenCertificate - The token metadata
+* @return {[]} - Empty tuple.
+*/
+export circuit mint(to: Either<ZswapCoinPublicKey, ContractAddress>,
+                    tokenId: Uint<128>,
+                    tokenCertificate: NonFungibleToken_Certificate,
+                    price: Uint<64>
+                    ): [] {
+  assertOnlyRole(2 as Field as Bytes<32>);
+  return NonFungibleToken_mint(to, tokenId, tokenCertificate, price);
+}
+
+/**
+* @description Destroys `tokenId`. The approval is cleared when the token is burned. This circuit does not check if the sender is authorized to operate on the token.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @requirements:
+* - The caller must have `Settler role`.
+* - Wrapper call
+* @param {Uint<128>} tokenId - The token to burn
+* @return {[]} - Empty tuple.
+*/
+export circuit burn(tokenId: Uint<128>): [] {
+  assertOnlyRole(6 as Field as Bytes<32>);
+  return NonFungibleToken_burn(tokenId);
+}
+
+/**
+* @description Sets the price for the given `tokenId`.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice Normally this is set during minting, but can be changed afterward to adjust market conditions
+*
+* @requirements:
+* - Wrapper call   
+* @param {Uint<128>} tokenId - The identifier of the token.
+* @param {Uint<64>} price - The price of the token.
+* @return {[]} - Empty tuple.
+*/
+export circuit setTokenPrice(tokenId: Uint<128>, price: Uint<64>): [] {
+  NonFungibleToken_setTokenPrice(tokenId, price);
+}
+
+/**
+* @description: Pause Token calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can pause Token calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseToken(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  NonFungibleToken_pauseToken();
+}
+
+/**
+* @description: Unpause Token calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can unpause Identity calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseToken(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  NonFungibleToken_unpauseToken();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// CIRCUITS BUCKET DEFI
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+* @description: Create Buckets.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: The creator should be within the whitelist (Identity module).
+*
+* @requirements:
+* - The caller must be part of the whitelist (Identity module).
+* - Wrapper call
+* @return {Bytes<32>} ownerCommitment - The ownercommitment created that represents the bucket ID.
+*/
+export circuit createBucket(conditions: BucketDEFI_CONDITIONS, coin: CoinInfo): Bytes<32> {
+  assertOwnVerification();
+  return BucketDEFI_createBucket(conditions, coin);
+}
+
+/**
+* @description: Add a certificate to the bucket if it complies with the conditions
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: The matcher can add a certificate to the bucket or the owner of the token.
+*
+* @requirements:
+* - Check that the caller is either a matcher or the owner of the token.
+* - Check if the bucket exists, if not revert. Get Bucket Conditions.
+* - Check if the token exists, if not revert. Get Token Specs and Token Price.
+* - Check if the token complies with the bucket conditions.
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit addCertificateToBucket(ownerCommitment: Bytes<32>, tokenId: Uint<128>): [] {
+  // Check if the caller is either a matcher or the owner of the token.
+  const owner = NonFungibleToken__ownerOf(tokenId);
+  const isOwner = (owner.left == ownPublicKey());
+  if (!isOwner) assertOnlyRole(4 as Field as Bytes<32>);
+
+  // Check if the bucket exists, if not revert. Get Bucket Conditions.
+  assert(BucketDEFI__zkBucketDEFIConditions.member(disclose(ownerCommitment)), "Bucket not found");
+  const bucketConditions = BucketDEFI__zkBucketDEFIConditions.lookup(disclose(ownerCommitment));
+
+  // Check if the token exists, if not revert. Get Token Specs and Token Price.
+  assert(NonFungibleToken__tokenToCertificate.member(disclose(tokenId)), "Token not found");
+  const tokenSpecs = NonFungibleToken__tokenToCertificate.lookup(disclose(tokenId));
+  const tokenPrice = NonFungibleToken__tokenToPrice.lookup(disclose(tokenId));
+
+  // Check if the token complies with the bucket conditions.
+  assert(bucketConditions.source == tokenSpecs.source, "Source doesn't match");
+  assert(bucketConditions.unitPrice * tokenSpecs.generation >= tokenPrice, "Token price doesn't meet unit price");
+  assert(bucketConditions.vintageLimit >= tokenSpecs.vintage, "Token vintage doesn't meet vintage limit");
+  assert(bucketConditions.impact == tokenSpecs.impact, "Impact doesn't match");
+  assert(bucketConditions.location == tokenSpecs.location, "Location doesn't match");
+  assert(bucketConditions.status == BucketDEFI_STATUS.OPEN, "Bucket status isn't open");
+  assert(bucketConditions.accumulatedPrice + tokenPrice <= bucketConditions.pot, "Accumulated price exceeds pot");
+  assert(blockTimeGte(bucketConditions.startDate), "Current time is before start date");
+  assert(blockTimeLte(bucketConditions.endDate), "Current time is after end date");
+
+  // Wrapper call
+  return BucketDEFI_addCertificateToBucket(ownerCommitment, tokenId, tokenPrice);
+}
+
+/**
+* @description: Settle the bucket
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: The settler can settle the bucket or the owner of the bucket.
+*
+* @requirements:
+* - Check that the caller is either a settler or the owner of the bucket.
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit settleBucket(ownerCommitment: Bytes<32>): [] {
+  // Check if the caller is either a settler or the owner of the bucket.
+  const isOwner = BucketDEFI__isBucketOwner(ownerCommitment);
+  if (!isOwner) assertOnlyRole(6 as Field as Bytes<32>);
+
+  // Wrapper call
+  return BucketDEFI_settleBucket(ownerCommitment);
+}
+
+/**
+* @description: Claim the reward of a certificate
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: NA.
+*
+* @requirements:
+* - Confirm that the caller is the owner of the certificate.
+* - Get the token price
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit claimCertificateReward(tokenId: Uint<128>): [] {
+  // Check if the caller is the owner of the certificate
+  const owner = NonFungibleToken__ownerOf(tokenId);
+  const isOwner = (owner.left == ownPublicKey());
+  assert(isOwner, "Caller is not the owner of the certificate");
+
+  //get the token price
+  const tokenPrice = NonFungibleToken__tokenToPrice.lookup(disclose(tokenId));
+
+  // Wrapper call
+  return BucketDEFI_claimCertificateReward(disclose(tokenId), disclose(tokenPrice), owner);
+}
+
+/**
+* @description: Withdraw the leftovers of the bucket
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: NA
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit withdrawBucketLeftover(ownerCommitment: Bytes<32>): [] {
+  return BucketDEFI_withdrawBucketLeftover(ownerCommitment);  
+}
+
+/**
+* @description: Proof that you are the owner of the bucket and the challenge is correct
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: NA
+*
+* @requirements:
+* - Wrapper call
+* @return {[]} empty tuple
+*/
+export circuit proofBucketOwnership(ownerCommitment: Bytes<32>, challenge: Bytes<32>): [] {
+  return BucketDEFI_proofBucketOwnership(ownerCommitment, challenge);  
+}
+
+/**
+* @description: Pause BucketDEFI calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can pause BucketDEFI calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit pauseBucketDEFI(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  BucketDEFI_pauseBucketDEFI();
+}
+
+/**
+* @description: Unpause BucketDEFI calls.
+*
+* @circuitInfo k=xx, rows=xx
+*
+* @notice: Only Admin master role can unpause BucketDEFI calls.
+*
+* @requirements:
+* - The caller must have `Admins master role`.
+* - Wrapper call
+* @return {[]} - Empty tuple.
+*/
+export circuit unpauseBucketDEFI(): [] {
+  assertOnlyRole(default<Bytes<32>>);
+  BucketDEFI_unpauseBucketDEFI();
 }
